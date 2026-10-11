@@ -1,12 +1,8 @@
-# Nurtra 🥗
+# Nurtra 
 
 Aplikasi penghitung kalori harian untuk program defisit kalori — dibuat untuk
 pengguna Indonesia. Frontend vanilla JS + Tailwind-free CSS, backend Python
 FastAPI, integrasi AI **Atria Dawn** (text-only).
-
-> **Catatan Atria Dawn:** model ini berbasis teks saja. Semua permintaan ke
-> `https://api.atria-asi.ai/v1` dikirim sebagai JSON / chat-completions.
-> Jangan pernah mengirim gambar/biner ke endpoint ini.
 
 ## Fitur
 
