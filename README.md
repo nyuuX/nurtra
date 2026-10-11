@@ -2,7 +2,7 @@
 
 Aplikasi penghitung kalori harian untuk program defisit kalori — dibuat untuk
 pengguna Indonesia. Frontend vanilla JS + Tailwind-free CSS, backend Python
-FastAPI, integrasi AI **Atria Dawn** (text-only).
+FastAPI, integrasi AI **Atria Dawn**
 
 ## Fitur
 
