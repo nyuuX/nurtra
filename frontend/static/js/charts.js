@@ -36,6 +36,76 @@
     };
   }
 
+  /* ---- Animation helpers ------------------------------------------- */
+
+  const reduceMotion =
+    typeof matchMedia !== "undefined" &&
+    matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /** Animate an SVG node's opacity + optional transform, then resolve.
+   * SVG transform-box: fill-box makes `scale`/`translate` relative to the
+   * element's own bounding box, which is what makes bar grows look right
+   * regardless of where the rect sits in the viewBox. */
+  function tween(node, opts) {
+    if (reduceMotion) {
+      if (opts.onDone) opts.onDone();
+      return;
+    }
+    const duration = opts.duration || 400;
+    const delay = opts.delay || 0;
+    const from = opts.from != null ? opts.from : 0;
+    const to = opts.to != null ? opts.to : 1;
+    const attr = opts.attr || "opacity";
+
+    setTimeout(function () {
+      const start = performance.now();
+      // ease-out cubic — settles with a small overshoot feel
+      const step = function (now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const val = from + (to - from) * eased;
+        if (attr === "transform") {
+          node.setAttribute(
+            "transform",
+            opts.transform ? opts.transform(val) : ""
+          );
+        } else {
+          node.setAttribute(attr, val.toFixed(3));
+        }
+        if (t < 1) requestAnimationFrame(step);
+        else if (opts.onDone) opts.onDone();
+      };
+      requestAnimationFrame(step);
+    }, delay);
+  }
+
+  /* Draw a path by animating its stroke-dashoffset from full length to 0.
+   * This is the classic "chart draws itself" effect. getTotalLength is
+   * exact for path geometry, so the dash lines up flush at the end. */
+  function drawPath(path, duration, delay) {
+    if (reduceMotion) return;
+    let length = 0;
+    try {
+      length = path.getTotalLength();
+    } catch (e) {
+      return; // display:none or zero-length — nothing to animate
+    }
+    if (!length) return;
+    path.style.strokeDasharray = String(length);
+    path.style.strokeDashoffset = String(length);
+    const start = performance.now();
+    setTimeout(function begin() {
+      const step = function (now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        path.style.strokeDashoffset = String(length * (1 - eased));
+        if (t < 1) requestAnimationFrame(step);
+        else path.style.strokeDasharray = "none";
+      };
+      requestAnimationFrame(step);
+    }, delay || 0);
+  }
+
   /* ============================================================
    * 7-day bar chart: intake bars + exercise overlay + target line
    * ============================================================ */
@@ -92,17 +162,35 @@
       const rx = 5;
 
       if (logged) {
-        svg.appendChild(
-          el("rect", {
-            x: cx - barW / 2,
-            y: y(b.kcal),
-            width: barW,
-            height: h,
-            rx: rx,
-            fill: p.emerald,
-            opacity: b.over ? 0.95 : 0.85,
-          })
-        );
+        const bar = el("rect", {
+          x: cx - barW / 2,
+          y: y(b.kcal),
+          width: barW,
+          height: h,
+          rx: rx,
+          fill: p.emerald,
+          opacity: b.over ? 0.95 : 0.85,
+        });
+        svg.appendChild(bar);
+
+        // Grow from the baseline. SVG transforms need transform-box so the
+        // scale origin is the bar's own bottom edge, not the viewBox origin.
+        const baseY = padT + innerH;
+        bar.style.transformBox = "fill-box";
+        bar.style.transformOrigin = "50% 100%";
+        tween(bar, {
+          attr: "transform",
+          duration: 520,
+          delay: 120 + i * 70,
+          transform: function (v) {
+            // scaleY 0 -> 1 while pinning the bottom: translate compensates
+            // the vertical shift the scale would otherwise cause.
+            return (
+              "translate(0 " + (baseY - y(b.kcal)) * (1 - v) + ") scaleY(" + v + ")"
+            );
+          },
+        });
+
         // exercise overlay stripe (warm) on top of the intake bar
         if (b.exercise_kcal > 0) {
           const exH = Math.max(
@@ -128,9 +216,11 @@
           "font-size": 11,
           "font-weight": 700,
           fill: p.text,
+          opacity: 0,
         });
         value.textContent = String(Math.round(b.kcal));
         svg.appendChild(value);
+        tween(value, { duration: 300, delay: 300 + i * 70 });
       } else {
         // unlogged day: faint placeholder so the week reads complete
         svg.appendChild(
@@ -152,25 +242,29 @@
         "font-size": 12,
         "font-weight": 600,
         fill: logged ? p.text : p.muted,
+        opacity: 0,
       });
       dayLabel.textContent = b.weekday;
       svg.appendChild(dayLabel);
+      tween(dayLabel, { duration: 260, delay: 150 + i * 70 });
     });
 
     // ---- Target line (drawn last so it sits above the bars) -------
     const ty = y(target);
-    svg.appendChild(
-      el("line", {
-        x1: padL,
-        y1: ty,
-        x2: W - padR,
-        y2: ty,
-        stroke: p.text,
-        "stroke-width": 2,
-        "stroke-dasharray": "7 5",
-        opacity: 0.85,
-      })
-    );
+    const tline = el("line", {
+      x1: padL,
+      y1: ty,
+      x2: W - padR,
+      y2: ty,
+      stroke: p.text,
+      "stroke-width": 2,
+      "stroke-dasharray": "7 5",
+      opacity: 0.85,
+    });
+    svg.appendChild(tline);
+    // Lines don't have getTotalLength geometry quirks like paths, so animate
+    // opacity + a horizontal sweep instead of a dash draw.
+    tween(tline, { duration: 420, delay: 560 });
     const tag = el("text", {
       x: W - padR - 6,
       y: ty - 7,
@@ -178,9 +272,11 @@
       "font-size": 11,
       "font-weight": 800,
       fill: p.text,
+      opacity: 0,
     });
     tag.textContent = "Target " + Math.round(target) + " kkal";
     svg.appendChild(tag);
+    tween(tag, { duration: 300, delay: 760 });
   }
 
   /* ============================================================
@@ -308,29 +404,36 @@
     svg.appendChild(
       el("path", { d: areaPath, fill: "url(#weightFill)", stroke: "none" })
     );
-    svg.appendChild(
-      el("path", {
-        d: linePath,
-        fill: "none",
-        stroke: p.emerald,
-        "stroke-width": 3,
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-      })
-    );
+
+    const line = el("path", {
+      d: linePath,
+      fill: "none",
+      stroke: p.emerald,
+      "stroke-width": 3,
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+    });
+    svg.appendChild(line);
+
+    // The curve draws itself: dashoffset animates full -> 0. The area fill
+    // follows the same timeline so it doesn't appear ahead of the stroke.
+    drawPath(line, 1400, 250);
 
     // ---- Dots + labels ---------------------------------------------
     weights.forEach(function (w, i) {
-      svg.appendChild(
-        el("circle", {
-          cx: x(i),
-          cy: y(w.weight_kg),
-          r: 4,
-          fill: p.emerald,
-          stroke: cssVar("--surface") || "#fff",
-          "stroke-width": 2,
-        })
-      );
+      const dot = el("circle", {
+        cx: x(i),
+        cy: y(w.weight_kg),
+        r: 4,
+        fill: p.emerald,
+        stroke: cssVar("--surface") || "#fff",
+        "stroke-width": 2,
+        opacity: 0,
+      });
+      svg.appendChild(dot);
+      // Stagger so each dot pops in right as the curve reaches it.
+      tween(dot, { duration: 280, delay: 250 + (i / Math.max(1, weights.length - 1)) * 1400 });
+
       const label = el("text", {
         x: x(i),
         y: y(w.weight_kg) - 10,
@@ -338,20 +441,24 @@
         "font-size": 10.5,
         "font-weight": 700,
         fill: p.text,
+        opacity: 0,
       });
       label.textContent = w.weight_kg.toFixed(1);
       svg.appendChild(label);
+      tween(label, { duration: 260, delay: 350 + (i / Math.max(1, weights.length - 1)) * 1400 });
 
       const day = el("text", {
         x: x(i),
         y: H - 10,
         "text-anchor": "middle",
-        "font-size": "11",
+        "font-size": 11,
         fill: p.muted,
+        opacity: 0,
       });
       const parts = (w.date || "").split("-");
       day.textContent = parts.length === 3 ? parts[2] : w.date;
       svg.appendChild(day);
+      tween(day, { duration: 250, delay: 200 + i * 110 });
     });
   }
 

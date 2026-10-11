@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import logging
 
-from .atria_client import chat, extract_json
+from .gemini_client import text_chat
+from .atria_client import extract_json
 from .config import get_settings
 from .foods import FOODS
 
@@ -44,7 +45,7 @@ def suggest_recipes(pantry: list[str], target_kcal: int = 500, max_results: int 
     if not pantry:
         return {"recipes": [], "source": "empty", "confidence": 0.0}
 
-    if settings.atria_ready:
+    if settings.gemini_ready:
         try:
             payload = {
                 "pantry": pantry,
@@ -53,7 +54,7 @@ def suggest_recipes(pantry: list[str], target_kcal: int = 500, max_results: int 
                 "schema": RECIPE_SCHEMA,
                 "local_food_names": [f["name"] for f in FOODS[:40]],
             }
-            content = chat(
+            content = text_chat(
                 [
                     {"role": "system", "content": RECIPE_SYSTEM},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
@@ -62,12 +63,12 @@ def suggest_recipes(pantry: list[str], target_kcal: int = 500, max_results: int 
             )
             parsed = extract_json(content)
             if parsed and isinstance(parsed, dict) and parsed.get("recipes"):
-                parsed["source"] = "atria"
-                parsed["atria_raw"] = content
+                parsed["source"] = "gemini"
+                parsed["gemini_raw"] = content
                 return parsed
-            log.info("suggest_recipes: no usable JSON from Atria, using local fallback")
+            log.info("suggest_recipes: no usable JSON from Gemini, using local fallback")
         except Exception as exc:
-            log.warning("suggest_recipes: Atria failed, using local fallback: %s", exc)
+            log.warning("suggest_recipes: Gemini failed, using local fallback: %s", exc)
 
     return _local_recipes(pantry, max_results)
 

@@ -230,3 +230,60 @@ Atria Dawn hanya memproses teks. Aturan yang diterapkan di `atria_client.py`:
 - **Latensi.** `Atria-Dawn-Preview` adalah reasoning model; `weekly-insights`
   butuh sekitar 45–130 detik. Timeout diset 240s, dan tombol UI menampilkan
   indikator "±1 menit".
+
+---
+
+## 4. Foto → nutrisi (fitur #7, provider terpisah)
+
+Fitur ini **bukan** Atria Dawn — Atria text-only, jadi foto memakai Gemini
+vision lewat endpoint OpenAI-compatible.
+
+Endpoint: `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`
+Model: `gemini-3.5-flash-lite`
+
+```json
+POST /api/ai/photo-foods
+Content-Type: multipart/form-data
+
+file: <image/jpeg atau image/png>
+```
+
+### Request ke Gemini
+
+```json
+{
+  "model": "gemini-3.5-flash-lite",
+  "temperature": 0.2,
+  "max_tokens": 900,
+  "messages": [{
+    "role": "user",
+    "content": [
+      { "type": "text", "text": "<prompt identifikasi + schema>" },
+      { "type": "image_url", "image_url": { "url": "data:image/jpeg;base64,..." } }
+    ]
+  }]
+}
+```
+
+Gambar di-downsample ke 768px long edge (Pillow) sebelum diunggah karena
+budget token Gemini ketat.
+
+### Logika dua-sumber
+
+1. Gemini mengembalikan `name` + `est_grams` per item.
+2. Untuk setiap item, backend cari di database Indonesia (`search_foods`).
+   - **Cocok** → angka nutrisi dari DB, diskalakan per gram. Konsisten
+     dengan log teks user.
+   - **Tidak cocok** → pakai estimasi Gemini, frontend menandai
+     "estimasi AI" supaya user bisa edit.
+3. Bila key Gemini kosong / quota habis / timeout → turun ke
+   `candidates` dari DB + hint filename; user pilih manual.
+
+### Batasan
+
+- Gemini 3.x kadang membungkus JSON dalam ```json fences meski diminta
+  tidak; `extract_json()` sudah menanganinya.
+- Model reasoning: panggilan tanpa `max_tokens` bisa menghabiskan kuota
+  per menit untuk "berpikir" tentang foto. Selalu set `max_tokens`.
+- Free tier: ~20 request/hari per model (3.5-flash). Flash-lite punya
+  kuota terpisah yang lebih longgar.

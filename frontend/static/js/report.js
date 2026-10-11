@@ -52,6 +52,11 @@
     $("statAdherence").textContent = (adherence.rate || 0).toFixed(0) + "%";
     $("statAvgKcal").textContent = shared.fmt(stats.avg_kcal || 0);
     $("statAvgProtein").textContent = (stats.avg_protein_g || 0).toFixed(0) + "g";
+    // Hydration shows the daily average plus the goal so the reader can see
+    // whether they were short, not just the raw number.
+    $("statAvgWater").textContent =
+      shared.fmt(stats.avg_water_ml || 0) + " ml" +
+      (stats.water_target_ml ? " / " + shared.fmt(stats.water_target_ml) : "");
     $("reportRange").textContent =
       shared.fmtDate(range.start) + " — " + shared.fmtDate(range.end);
 

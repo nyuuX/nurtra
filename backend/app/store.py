@@ -8,10 +8,10 @@ from __future__ import annotations
 import json
 import os
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
-from .config import get_settings
+from .config import local_now, today_local_iso, get_settings
 
 _lock = threading.Lock()
 
@@ -49,7 +49,7 @@ def _seed() -> dict:
         {"id": "m4", "name": "Telur Ayam", "meal": "breakfast", "kcal": 155, "protein_g": 13.0, "carb_g": 1.1, "fat_g": 11.0, "portion_g": 60, "servings": 1.0, "time": "07:30"},
     ]
 
-    today = datetime.now(timezone.utc).date()
+    today = local_now().date()
     days = []
     weights = [75.2, 75.0, 74.8, 75.1, 74.6, 74.5, 74.3]
     for i in range(7):
@@ -132,4 +132,5 @@ def save(data: dict) -> None:
 
 
 def today_iso() -> str:
-    return datetime.now(timezone.utc).date().isoformat()
+    # Local time, not UTC — the log day rolls over at 00:00 local.
+    return today_local_iso()

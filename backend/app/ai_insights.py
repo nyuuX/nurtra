@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import logging
 
-from .atria_client import chat, extract_json, num
+from .gemini_client import text_chat
+from .atria_client import extract_json, num
 from .config import get_settings
 
 log = logging.getLogger("defisitku.insights")
@@ -64,13 +65,13 @@ def _slim_week(week: dict) -> dict:
 
 
 def weekly_insights(week: dict) -> dict:
-    if not settings.atria_ready:
+    if not settings.gemini_ready:
         return _local_insights(week)
 
     try:
-        # Atria Dawn is a reasoning model: this call can take 60-150s.
+        # Gemini call
         payload = {"schema": INSIGHT_SCHEMA, "week": _slim_week(week)}
-        content = chat(
+        content = text_chat(
             [
                 {"role": "system", "content": INSIGHT_SYSTEM},
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False, default=str)},
@@ -82,12 +83,12 @@ def weekly_insights(week: dict) -> dict:
         parsed = extract_json(content)
         if parsed and isinstance(parsed, dict) and parsed.get("insights") is not None:
             parsed.setdefault("recommendations", [])
-            parsed["source"] = "atria"
-            parsed["atria_raw"] = content
+            parsed["source"] = "gemini"
+            parsed["gemini_raw"] = content
             return parsed
-        log.info("weekly_insights: no usable JSON from Atria, using local fallback")
+        log.info("weekly_insights: no usable JSON from Gemini, using local fallback")
     except Exception as exc:
-        log.warning("weekly_insights: Atria failed, using local fallback: %s", exc)
+        log.warning("weekly_insights: Gemini failed, using local fallback: %s", exc)
 
     return _local_insights(week)
 

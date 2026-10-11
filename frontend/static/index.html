@@ -22,7 +22,7 @@
               <h1>
                 Nurtra
                 <label style="font-size: 10px; opacity: 0.75; color: gray"
-                  >v0.1.0</label
+                  >v0.1.1</label
                 >
               </h1>
             </div>
@@ -95,15 +95,20 @@
             <strong>Masuk untuk menyimpan progressmu</strong>
             <span>Log makanan, olahraga, dan laporan butuh akun.</span>
           </div>
-          <a class="btn btn-primary btn-tiny" id="bannerLogin" href="/login.html"
-            >Masuk</a
-          >
-          <a
-            class="btn btn-ghost btn-tiny"
-            id="bannerSignup"
-            href="/login.html?mode=signup"
-            >Daftar</a
-          >
+          <div class="auth-banner-actions">
+            <a
+              class="btn btn-primary btn-tiny"
+              id="bannerLogin"
+              href="/login.html"
+              >Masuk</a
+            >
+            <a
+              class="btn btn-ghost btn-tiny"
+              id="bannerSignup"
+              href="/login.html?mode=signup"
+              >Daftar</a
+            >
+          </div>
         </div>
         <section class="hero-card" id="heroCard">
           <svg
@@ -112,6 +117,13 @@
             id="ringSvg"
             aria-hidden="true"
           >
+            <defs>
+              <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#059669" />
+                <stop offset="50%" stop-color="#10b981" />
+                <stop offset="100%" stop-color="#34d399" />
+              </linearGradient>
+            </defs>
             <circle class="ring-track" cx="120" cy="120" r="100" />
             <circle
               class="ring-progress"
@@ -139,9 +151,16 @@
             <span class="bd-k">Makanan</span
             ><span class="bd-v" id="bdFood">–</span>
           </div>
-          <div class="bd-sep">+</div>
+          <div class="bd-sep">=</div>
           <div class="bd">
-            <span class="bd-k">Olahraga</span
+            <span class="bd-k">Sisa</span
+            ><span class="bd-v" id="bdRemaining">–</span>
+          </div>
+          <!-- Olahraga terpisah: kalori yang terbakar TIDAK dikurangkan dari
+               jatah harian, hanya ditampilkan sebagai informasi. -->
+          <div class="bd-sep bd-sep-soft">·</div>
+          <div class="bd">
+            <span class="bd-k">Terbakar</span
             ><span class="bd-v warm" id="bdExercise">–</span>
           </div>
         </div>
@@ -162,12 +181,47 @@
         </section>
 
         <!-- Meals -->
-        <section class="card">
+        <section class="card" id="mealCard">
           <div class="card-head">
-            <h2>Log Makanan</h2>
-            <button id="btnQuickAdd" class="btn btn-tiny">+ Quick Add</button>
+            <h2>Makanan Hari ini</h2>
+            <button id="btnQuickAdd" class="btn btn-tiny">
+              + Add Custom Meal
+            </button>
           </div>
           <div id="mealSections"></div>
+        </section>
+
+        <!-- Water -->
+        <section class="card">
+          <div class="card-head">
+            <h2>Air</h2>
+            <button id="btnWaterReset" class="btn btn-tiny" type="button">
+              Reset
+            </button>
+          </div>
+          <div class="water-wrap">
+            <div class="water-cup" id="waterCup">
+              <div class="water-fill" id="waterFill"></div>
+              <div class="water-bubble b1"></div>
+              <div class="water-bubble b2"></div>
+              <div class="water-bubble b3"></div>
+            </div>
+            <div class="water-meta">
+              <div class="water-total" id="waterTotal">0 ml</div>
+              <div class="water-sub" id="waterSub">dari 0 ml</div>
+            </div>
+          </div>
+          <div class="water-btns" id="waterBtns">
+            <button class="btn btn-glass" data-water="200">200 ml</button>
+            <button class="btn btn-glass" data-water="250">250 ml</button>
+            <button class="btn btn-glass" data-water="330">330 ml</button>
+            <button class="btn btn-glass" data-water="500">500 ml</button>
+            <button class="btn btn-glass" data-water="600">600 ml</button>
+            <button class="btn btn-glass custom">
+              <span>Custom</span>
+            </button>
+          </div>
+          <div id="waterLog" class="water-log"></div>
         </section>
 
         <!-- Exercise -->
@@ -203,12 +257,33 @@
           autocomplete="off"
         />
         <button
+          id="btnPhotoFood"
+          class="btn btn-tiny"
+          title="Foto makanan untuk dikenali otomatis"
+        >
+          📷
+        </button>
+        <button
           id="btnAIParse"
           class="btn btn-tiny"
           title="Pakai AI untuk mengenali teks bebas"
         >
-          AI ✨
+          AI
         </button>
+      </div>
+      <input
+        id="photoInput"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+      />
+      <div id="photoBox" class="ai-parse-box" hidden>
+        <div class="photo-preview">
+          <img id="photoPreview" alt="Foto makanan" hidden />
+          <div id="photoStatus" class="photo-status">Memproses foto…</div>
+        </div>
+        <div id="photoResult"></div>
       </div>
       <div id="aiParseBox" class="ai-parse-box" hidden>
         <div class="ai-parse-input">
@@ -245,6 +320,16 @@
         <div class="range-labels">
           <span>0.25x</span><span id="rangeVal">1x</span><span>4x</span>
         </div>
+        <label class="field field-group">
+          <span class="field-label">Nama grup (opsional)</span>
+          <input
+            id="groupName"
+            type="text"
+            maxlength="60"
+            placeholder="Contoh: Paket A · Kos Bu Ani"
+            autocomplete="off"
+          />
+        </label>
         <button id="btnConfirmAdd" class="btn btn-primary btn-wide">
           Tambah ke Log
         </button>
@@ -339,6 +424,36 @@
             required
         /></label>
         <button type="submit" class="btn btn-primary btn-wide">Simpan</button>
+      </form>
+    </div>
+
+    <!-- ===== Water custom sheet ===== -->
+    <div class="sheet" id="waterSheet" hidden>
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <h3>Tambah Air Manual</h3>
+        <button id="btnCloseWaterSheet" class="btn btn-ghost icon-only">
+          ✕
+        </button>
+      </div>
+      <form id="waterForm" class="quick-form">
+        <label
+          >Jumlah (ml)<input
+            name="ml"
+            type="number"
+            step="10"
+            min="10"
+            max="3000"
+            required
+            placeholder="350"
+        /></label>
+        <label
+          >Label (opsional)<input
+            name="label"
+            maxlength="40"
+            placeholder="Teh, Susu"
+        /></label>
+        <button type="submit" class="btn btn-primary btn-wide">Tambah</button>
       </form>
     </div>
 

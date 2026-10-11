@@ -9,8 +9,10 @@ All units: kg / cm / kcal.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Literal
+
+from .config import local_now
 
 # ----------------------------- Constants -----------------------------
 
@@ -173,7 +175,7 @@ def fasting_status_for(protocol: str, now: datetime | None = None) -> dict:
         return {"enabled": False, "protocol": protocol}
     fast_h, eat_h = proto
 
-    now = now or datetime.now()  # local wall-clock; fasting windows are local
+    now = now or local_now()  # local wall-clock; fasting windows are local
     eat_start = 12  # 12:00 local reference point
     hour = now.hour
     inside = eat_start <= hour < eat_start + eat_h
@@ -296,3 +298,30 @@ def nutrition_profile(
     if fasting:
         out["fasting"] = fasting_status_for(fasting)
     return out
+
+
+# ------------------------- Hydration ----------------------------------
+# Common Indonesian practice and most clinical guidance land near 30 ml/kg
+# for sedentary adults, plus extra for hot climates and training days.
+# Kept simple and predictable rather than precise: the point is a target the
+# user can hit, not a medical recommendation.
+WATER_ML_PER_KG = 30.0
+WATER_HOT_CLIMATE_ML = 500.0
+
+
+def water_target(profile: dict) -> int:
+    """Daily water target in ml from bodyweight, floored at a sane minimum.
+
+    30 ml/kg with a +500 ml allowance for Indonesia's climate; activity above
+    sedentary adds a little more since sweating scales with training volume.
+    """
+    weight = max(30.0, min(float(profile.get("weight_kg") or 70), 300.0))
+    ml = weight * WATER_ML_PER_KG + WATER_HOT_CLIMATE_ML
+
+    activity = (profile.get("activity") or "sedentary").lower()
+    if activity in ("light", "moderate"):
+        ml += 350.0
+    elif activity in ("active", "very_active", "very active"):
+        ml += 700.0
+
+    return int(round(min(ml, 6000.0)))

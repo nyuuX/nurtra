@@ -1,7 +1,8 @@
 /* ============================================================
-   DefisitKu — simple, modern, spacious.
+   Nurtra — simple, modern, spacious.
    Light: #F9FAFB bg  |  Dark: #0F172A bg
    Emerald #10B981 = progress/safe  |  Warm orange = exercise
+   Glassmorphism layer: --glass tokens below.
    ============================================================ */
 
 :root {
@@ -23,6 +24,27 @@
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
   --shadow-md: 0 8px 24px -12px rgba(15, 23, 42, 0.18);
   --ring-track: rgba(15, 23, 42, 0.08);
+  /* Glass: translucency is what makes the frost effect read. Light mode
+     uses a brighter, less saturated tint so the blur has something to blur. */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-blur: 14px;
+  --glass-sat: 160%;
+  --glass-shadow: 0 8px 32px -8px rgba(15, 23, 42, 0.14);
+  /* Brand gradient, used for hero ring accents + primary buttons. Same
+     emerald anchor, so the palette doesn't drift. */
+  --grad-emerald: linear-gradient(
+    135deg,
+    #059669 0%,
+    #10b981 45%,
+    #34d399 100%
+  );
+  --grad-warm: linear-gradient(135deg, #d97706 0%, #f59e0b 50%, #fbbf24 100%);
+  --grad-hero: radial-gradient(
+    120% 120% at 50% 0%,
+    rgba(16, 185, 129, 0.1) 0%,
+    rgba(16, 185, 129, 0) 60%
+  );
 }
 
 html[data-theme="dark"] {
@@ -38,6 +60,18 @@ html[data-theme="dark"] {
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
   --ring-track: rgba(255, 255, 255, 0.09);
+  /* Dark glass: more transparency + a lighter border hairline, which is
+     what makes frosted glass legible on a dark backdrop. */
+  --glass-bg: rgba(30, 41, 59, 0.58);
+  --glass-border: rgba(148, 163, 184, 0.22);
+  --glass-blur: 16px;
+  --glass-sat: 170%;
+  --glass-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.55);
+  --grad-hero: radial-gradient(
+    120% 120% at 50% 0%,
+    rgba(16, 185, 129, 0.16) 0%,
+    rgba(16, 185, 129, 0) 60%
+  );
 }
 
 * {
@@ -48,9 +82,71 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family:
+    "Plus Jakarta Sans",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
+  /* Aurora: two soft emerald/orange blobs drift behind the glass. Fixed so
+     it doesn't scroll with content, which keeps the parallax subtle. */
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20% -10% auto -10%;
+  height: 70vh;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(
+      38% 55% at 12% 8%,
+      rgba(16, 185, 129, 0.2) 0%,
+      rgba(16, 185, 129, 0) 70%
+    ),
+    radial-gradient(
+      34% 50% at 88% 4%,
+      rgba(245, 158, 11, 0.16) 0%,
+      rgba(245, 158, 11, 0) 72%
+    );
+  animation: aurora 22s ease-in-out infinite alternate;
+}
+
+html[data-theme="dark"] body::before {
+  background:
+    radial-gradient(
+      38% 55% at 12% 8%,
+      rgba(16, 185, 129, 0.24) 0%,
+      rgba(16, 185, 129, 0) 70%
+    ),
+    radial-gradient(
+      34% 50% at 88% 4%,
+      rgba(245, 158, 11, 0.18) 0%,
+      rgba(245, 158, 11, 0) 72%
+    );
+}
+
+@keyframes aurora {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, 3%, 0) scale(1.06);
+  }
+  to {
+    transform: translate3d(-2%, -2%, 0) scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    animation: none;
+  }
 }
 
 .app {
@@ -58,10 +154,14 @@ body {
   margin: 0 auto;
   min-height: 100dvh;
   padding: 0 16px 64px;
+  position: relative;
+  z-index: 1;
 }
 
 /* ---- Numbers get weight ----------------------------------- */
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   margin: 0;
   font-size: 1.05rem;
   letter-spacing: -0.01em;
@@ -89,13 +189,26 @@ button {
   justify-content: space-between;
   gap: 8px;
   padding: 14px 0 12px;
-  background: linear-gradient(var(--bg) 72%, transparent);
+  /* Frosted topbar: translucent fill + blur instead of a flat solid band,
+     so the aurora shows through as the page scrolls under it. */
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  border-bottom: 1px solid var(--glass-border);
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  /* Nav buttons claim their natural width; the brand takes what's left. It
+     must be allowed to shrink, otherwise the date range under "Laporan"
+     pushed the action buttons off-screen on narrow phones. */
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .brand h1 {
@@ -115,22 +228,59 @@ button {
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  background: var(--emerald);
+  background: var(--grad-emerald);
   color: #04120d;
   font-weight: 800;
   font-size: 0.9rem;
   letter-spacing: -0.02em;
+  box-shadow: 0 4px 14px -4px rgba(16, 185, 129, 0.55);
+  /* Subtle sheen that sweeps across on hover. */
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.brand-mark:hover {
+  transform: translateY(-1px) scale(1.04);
+}
+
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.5),
+    transparent
+  );
+  transform: skewX(-18deg);
+  transition: left 0.55s ease;
+}
+
+.brand-mark:hover::after {
+  left: 120%;
 }
 
 .date-label {
   font-size: 0.75rem;
   color: var(--text-muted);
+  /* The date range ("7 Okt 2026 — 13 Okt 2026") squeezed into the brand's
+     leftover width and wrapped to two stubby lines at 360px. Keep it on one
+     line; the topbar can wrap the header itself if it must. */
+  white-space: nowrap;
 }
 
 .topbar-actions {
   display: flex;
   align-items: center;
   gap: 4px;
+  /* Never let the nav buttons be squeezed off-screen; the brand shrinks
+     first (see .brand). */
+  flex: 0 0 auto;
 }
 
 /* Nav buttons run tighter than body buttons so three links + auth + theme
@@ -149,7 +299,10 @@ button {
   font-weight: 600;
   font-size: 0.86rem;
   color: var(--text);
-  transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+  transition:
+    transform 0.08s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .btn:hover {
@@ -161,9 +314,55 @@ button {
 }
 
 .btn-primary {
-  background: var(--emerald);
-  border-color: var(--emerald);
+  /* Gradient fill with a glow shadow. The 2px transparent border keeps
+     the box model identical to the other .btn variants so row layouts
+     don't shift when a button swaps to primary. */
+  background: var(--grad-emerald);
+  border: 1px solid transparent;
   color: #04120d;
+  box-shadow: 0 4px 14px -6px rgba(16, 185, 129, 0.6);
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.2s ease,
+    filter 0.15s ease;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 20px -6px rgba(16, 185, 129, 0.7);
+}
+
+/* Sheen sweep on primary buttons */
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -70%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  transform: skewX(-18deg);
+  transition: left 0.6s ease;
+}
+
+.btn-primary:hover::after {
+  left: 130%;
+}
+
+.btn-primary.warm {
+  background: var(--grad-warm);
+  box-shadow: 0 4px 14px -6px rgba(245, 158, 11, 0.6);
+}
+
+.btn-primary.warm:hover {
+  box-shadow: 0 6px 20px -6px rgba(245, 158, 11, 0.7);
 }
 
 /* ---- Account dropdown ------------------------------------- */
@@ -356,12 +555,52 @@ button {
   padding-bottom: 24px;
 }
 
+/* Profile + report only: the sticky topbar sits flush against the first
+   card otherwise. The dashboard is excluded via its #viewDashboard id —
+   its hero card has its own spacing and this gap looked wrong there. */
+.view:not(#viewDashboard) {
+  padding-top: 20px;
+}
+
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  /* Glass panel: translucent fill + blur + a light hairline border.
+     The top hairline is brighter, which is what sells the "lit edge"
+     of real frosted glass. */
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   padding: 16px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--glass-shadow);
+  position: relative;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  padding: 1px;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0) 38%
+  );
+  -webkit-mask:
+    linear-gradient(#000, #000) content-box,
+    linear-gradient(#000, #000);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+html[data-theme="dark"] .card::before {
+  background: linear-gradient(
+    160deg,
+    rgba(241, 245, 249, 0.22) 0%,
+    rgba(241, 245, 249, 0) 40%
+  );
 }
 
 .card-head {
@@ -383,6 +622,43 @@ button {
   display: grid;
   place-items: center;
   padding: 20px 16px 8px;
+  overflow: hidden;
+}
+
+/* Soft radial glow behind the ring. Sits under the SVG (z-index 0) and
+   pulses slowly so the hero feels alive without being distracting. */
+.hero-card::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 130%;
+  height: 130%;
+  transform: translate(-50%, -50%);
+  background: var(--grad-hero);
+  pointer-events: none;
+  animation: heroGlow 6s ease-in-out infinite alternate;
+}
+
+@keyframes heroGlow {
+  from {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+.hero-card > * {
+  position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-card::before {
+    animation: none;
+  }
 }
 
 .ring {
@@ -399,14 +675,21 @@ button {
 
 .ring-progress {
   fill: none;
-  stroke: var(--emerald);
+  /* Gradient stroke: defined in index.html's SVG defs as #ringGrad.
+     A flat emerald works, but a 3-stop gradient makes the arc read
+     as a lit, dimensional object. */
+  stroke: url(#ringGrad);
   stroke-width: 16;
   stroke-linecap: round;
-  transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.3s ease;
+  transition:
+    stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 0.3s ease;
+  filter: drop-shadow(0 2px 8px rgba(16, 185, 129, 0.45));
 }
 
 .ring-progress.over {
   stroke: var(--danger);
+  filter: drop-shadow(0 2px 8px rgba(239, 68, 68, 0.45));
 }
 
 .hero-inner {
@@ -479,6 +762,14 @@ button {
   color: var(--text-muted);
   font-weight: 700;
 }
+/* The "Terbakar" segment sits beside the equation as an informational stat,
+   not part of it — a softer separator keeps the two groups visually apart. */
+.bd-sep-soft {
+  color: var(--glass-border);
+  font-weight: 400;
+  font-size: 0.9rem;
+  align-self: center;
+}
 
 /* display:flex above would beat the UA [hidden] rule, so the banner would
    stay visible after login even though .hidden was set to true. */
@@ -510,6 +801,103 @@ button {
   color: var(--text);
   font-size: 0.88rem;
 }
+.auth-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* Phone (~360-400px): keep the two buttons on one row, not scattered.
+   flex-wrap puts them at opposite edges or stacks them awkwardly, and
+   a wrapping <a> doesn't shrink-to-fit so they overflow the banner. */
+@media (max-width: 560px) {
+  .auth-banner {
+    flex-wrap: nowrap;
+  }
+  .auth-banner-text {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .auth-banner-text span {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ---- Photo recognition -------------------------------------- */
+.photo-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.photo-preview img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.photo-status {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.photo-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.photo-head strong {
+  font-size: 0.88rem;
+}
+.photo-source {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.photo-all {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-right: auto;
+}
+
+/* Each detected item is a <label> row: checkbox + name + kcal. */
+.food-check {
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, opacity 0.15s;
+}
+.food-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--emerald);
+  flex: 0 0 auto;
+}
+.food-check:not(:has(input:checked)) {
+  opacity: 0.5;
+}
+.food-check:hover {
+  border-color: var(--emerald);
+}
+.photo-total {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+#btnPhotoAddAll:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /* ---- Fasting chip ------------------------------------------ */
 .fasting-chip {
@@ -517,12 +905,38 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 9px;
+  padding: 9px 14px;
   border-radius: 999px;
   background: var(--emerald-soft);
   border: 1px solid rgba(16, 185, 129, 0.3);
   font-size: 0.82rem;
   font-weight: 600;
+  text-align: center;
+  /* "Jendela makan 16:8 · 12:00–20:00 · Makan sekarang" is a long single
+     string; on a 360px phone it overflowed the pill. Keep dot + text on
+     ONE line and let the chip grow downward — never wrap them apart. */
+  line-height: 1.4;
+}
+
+@media (max-width: 560px) {
+  .fasting-chip {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    border-radius: 14px;
+    font-size: 0.78rem;
+    text-align: left;
+  }
+
+  #fastingText {
+    flex: 1 1 auto;
+    min-width: 0;
+    /* The full status ("Puasa 16:8 · makan 12:00–20:00 · di luar jendela
+       makan") wraps to three lines at 360px and pushes the dot far away.
+       Truncate instead so the pill stays one tidy line. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 .dot {
@@ -536,6 +950,44 @@ button {
 .dot.fasting {
   background: var(--warm);
   box-shadow: 0 0 0 4px var(--warm-soft);
+}
+
+/* Outside the eating window: the chip flips from green to red so the fasting
+   state reads at a glance, not just from the small dot. */
+.fasting-chip.is-fasting {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--danger);
+}
+.fasting-chip.is-fasting .dot.fasting {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+}
+
+/* The whole Log Makanan card gets a red wash + warning header while fasting,
+   so logging a meal during the window still works but clearly breaks the
+   fast. */
+#mealCard.is-fasting {
+  border-color: rgba(239, 68, 68, 0.45);
+  /* Cards paint from --glass-bg, so override it explicitly for the red wash. */
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+#mealCard.is-fasting .card-head h2::after {
+  content: " ⦻ di luar jendela makan";
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--danger);
+  vertical-align: 1px;
+}
+#mealCard.is-fasting .empty-meal {
+  color: var(--danger);
+}
+#mealCard.is-fasting .btn-tiny {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--danger);
+}
+#mealCard.is-fasting .btn-tiny:hover {
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* ---- Macro bars -------------------------------------------- */
@@ -562,6 +1014,13 @@ button {
   font-weight: 500;
   color: var(--text-muted);
   font-size: 0.68rem;
+  /* The macro row is narrow on a 360px phone; "prioritas utama" forced the
+     label onto three lines and made the macro bars misalign with each
+     other. Keep it on one line and let the bar take the width it needs. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .macro-bar {
@@ -579,15 +1038,38 @@ button {
 }
 
 .macro-fill.protein {
-  background: var(--emerald);
+  background: var(--grad-emerald);
+  background-size: 200% 100%;
+  animation: shimmer 2.6s linear infinite;
 }
 
 .macro-fill.carb {
-  background: #8b5cf6;
+  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.6s linear infinite;
 }
 
 .macro-fill.fat {
-  background: var(--warm);
+  background: var(--grad-warm);
+  background-size: 200% 100%;
+  animation: shimmer 2.6s linear infinite;
+}
+
+/* Slow gradient sweep — keeps the bars from looking like flat paint. */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .macro-fill {
+    animation: none;
+    background-size: 100% 100%;
+  }
 }
 
 .macro-val {
@@ -631,6 +1113,12 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+.meal-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .add-btn {
   display: grid;
   place-items: center;
@@ -643,12 +1131,23 @@ button {
   font-weight: 800;
   font-size: 1.05rem;
   line-height: 1;
+  /* Was flush against the last meal item — give it air so the log and its
+     trigger read as separate things. */
+  margin-top: 8px;
+  transition:
+    transform 0.12s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
-.meal-items {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.add-btn:hover {
+  border-color: var(--emerald);
+  background: var(--emerald-soft);
+  transform: scale(1.08);
+}
+
+.add-btn:active {
+  transform: scale(0.94);
 }
 
 .meal-item {
@@ -660,6 +1159,29 @@ button {
   border-radius: 10px;
   padding: 8px 10px;
   font-size: 0.83rem;
+  /* Pop-in when a new entry is added. The JS re-renders the whole list on
+     add, so every row animates — kept short (0.2s) to stay playful, not
+     annoying, on a long list. */
+  animation: itemPop 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 0.12s ease,
+    background 0.15s ease;
+}
+
+.meal-item:hover {
+  transform: translateX(2px);
+  background: var(--emerald-soft);
+}
+
+@keyframes itemPop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .meal-item .mi-name {
@@ -700,6 +1222,151 @@ button {
   background: var(--emerald-soft);
   border-radius: 5px;
   padding: 1px 5px;
+}
+
+/* ---- Named meal groups ------------------------------------- */
+.meal-group {
+  flex-direction: column;
+  align-items: stretch;
+  background: var(--surface-3, var(--surface-2));
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.mi-group-row {
+  display: flex;
+  align-items: center;
+  /* caret hugs the group name; kcal + buttons keep together on the right */
+  justify-content: flex-start;
+  gap: 4px;
+}
+.mi-group-row .mi-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mi-group-row .mi-meta {
+  flex: 0 0 auto;
+  gap: 4px;
+}
+.mi-caret {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  /* 30px keeps it inside a compact row while staying a comfortable tap
+     target on mobile — the old 20px was too small to hit reliably */
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  /* The glyph spins with the expand/collapse state rather than swapping
+     between two characters, so the toggle reads as one continuous motion. */
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mi-caret.is-open {
+  transform: rotate(180deg);
+}
+.mi-caret:hover {
+  color: var(--emerald);
+  background: var(--emerald-soft);
+}
+.mi-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+  /* Collapsed: no border, no box, scaled out of view. Height is driven by
+     max-height rather than the `hidden` attribute because toggling display
+     does not reliably restart a CSS animation, so the list would freeze at
+     opacity 0. The class on the parent row (is-open) transitions it open. */
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 1px dashed transparent;
+  transform-origin: top center;
+  transform: translateY(-6px);
+  transition:
+    max-height 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.24s ease,
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    margin-top 0.3s ease,
+    padding-top 0.3s ease,
+    border-top-color 0.3s ease;
+}
+.meal-group.is-open .mi-group-items {
+  /* Generous ceiling so a long group never clips; the easing still reads
+     as a quick unfold for the common 2-5 item case. */
+  max-height: 500px;
+  opacity: 1;
+  transform: none;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top-color: var(--border);
+}
+
+/* Members fade and rise one after the other for a cascade effect. */
+.mi-group-items > .mi-sub {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.22s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.meal-group.is-open .mi-group-items > .mi-sub {
+  opacity: 1;
+  transform: none;
+}
+.meal-group.is-open .mi-group-items > .mi-sub:nth-child(1) { transition-delay: 0.03s; }
+.meal-group.is-open .mi-group-items > .mi-sub:nth-child(2) { transition-delay: 0.06s; }
+.meal-group.is-open .mi-group-items > .mi-sub:nth-child(3) { transition-delay: 0.09s; }
+.meal-group.is-open .mi-group-items > .mi-sub:nth-child(4) { transition-delay: 0.12s; }
+.meal-group.is-open .mi-group-items > .mi-sub:nth-child(5) { transition-delay: 0.15s; }
+.meal-group.is-open .mi-group-items > .mi-sub:nth-child(n + 6) { transition-delay: 0.18s; }
+/* Match the caret's hit area so all three controls in a group row are
+   equally easy to tap. */
+.meal-group .icon-btn {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.mi-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-left: 34px;
+}
+.mi-sub-kcal {
+  font-variant-numeric: tabular-nums;
+}
+.tag-grp {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0 5px;
+  vertical-align: 1px;
+}
+
+/* Group-name field inside the portion editor */
+.field-group {
+  margin-top: 10px;
+}
+.field-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.photo-group-name {
+  margin: 12px 0 4px;
 }
 
 .empty-meal {
@@ -763,10 +1430,15 @@ button {
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   /* chevron */
-  background-image: linear-gradient(45deg, transparent 50%, var(--emerald) 50%),
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--emerald) 50%),
     linear-gradient(135deg, var(--emerald) 50%, transparent 50%);
-  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
-  background-size: 5px 5px, 5px 5px;
+  background-position:
+    calc(100% - 17px) 50%,
+    calc(100% - 12px) 50%;
+  background-size:
+    5px 5px,
+    5px 5px;
   background-repeat: no-repeat;
 }
 
@@ -816,9 +1488,18 @@ button {
   display: inline-block;
 }
 
-.sw.emerald { background: var(--emerald); }
-.sw.warm    { background: var(--warm); }
-.sw.line    { background: transparent; border-top: 2px solid var(--text); height: 0; border-radius: 0; }
+.sw.emerald {
+  background: var(--emerald);
+}
+.sw.warm {
+  background: var(--warm);
+}
+.sw.line {
+  background: transparent;
+  border-top: 2px solid var(--text);
+  height: 0;
+  border-radius: 0;
+}
 
 .stat-grid {
   display: grid;
@@ -882,8 +1563,12 @@ button {
   font-size: 0.83rem;
 }
 
-.insight-item.warning { border-left-color: var(--warm); }
-.insight-item.alert   { border-left-color: var(--danger); }
+.insight-item.warning {
+  border-left-color: var(--warm);
+}
+.insight-item.alert {
+  border-left-color: var(--danger);
+}
 
 .insight-item strong {
   display: block;
@@ -1010,7 +1695,15 @@ textarea:focus,
   right: 0;
   bottom: 0;
   z-index: 70;
-  background: var(--surface);
+  /* Frosted sheet: heavier blur than cards — it sits over content, so
+     the blur depth needs to read as a distinct layer above the page. */
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 6px))
+    saturate(var(--glass-sat));
+  backdrop-filter: blur(calc(var(--glass-blur) + 6px))
+    saturate(var(--glass-sat));
+  border: 1px solid var(--glass-border);
+  border-bottom: none;
   border-radius: 22px 22px 0 0;
   padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
   max-height: 86dvh;
@@ -1020,8 +1713,14 @@ textarea:focus,
 }
 
 @keyframes sheetUp {
-  from { transform: translateY(24px); opacity: 0.4; }
-  to   { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(24px);
+    opacity: 0.4;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .sheet-grip {
@@ -1030,6 +1729,41 @@ textarea:focus,
   border-radius: 999px;
   background: var(--border);
   margin: 4px auto 10px;
+  /* Make it read as a handle, not decoration. Slightly taller + wider hit
+     area so a finger drag on mobile registers reliably. */
+  cursor: grab;
+  touch-action: none;
+  position: relative;
+  padding: 6px 0;
+  margin-top: 10px;
+}
+
+/* Visual pill stays 4px; the padding above/below expands the touch target
+   without making the grip look chunky. Background is drawn on an inner
+   pseudo so only the 4px center reads as the handle. */
+.sheet-grip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.sheet.dragging {
+  /* During a drag the sheet follows the finger exactly; spring back is
+     applied on release via .sheet-settle's transition. */
+  transition: none !important;
+  will-change: transform;
+}
+
+.sheet-settle {
+  /* Spring back after a drag. Slightly overshooting cubic-bezier makes the
+     snap feel physical rather than linear. */
+  transition: transform 0.34s cubic-bezier(0.34, 1.4, 0.5, 1);
 }
 
 .sheet-head {
@@ -1213,6 +1947,12 @@ textarea:focus,
   margin-bottom: 10px;
 }
 
+/* display:flex above would beat the UA [hidden] rule, so toggling
+   .hidden=true silently does nothing (same pitfall as .auth-banner). */
+.ai-parse-box[hidden] {
+  display: none !important;
+}
+
 .ai-parse-box > .ai-parse-input {
   display: flex;
   gap: 8px;
@@ -1246,21 +1986,37 @@ textarea:focus,
   bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
-  background: #0f172a;
-  color: #f1f5f9;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  border: 1px solid var(--glass-border);
+  color: var(--text);
   border-radius: 12px;
   padding: 10px 16px;
   font-size: 0.83rem;
   font-weight: 600;
   z-index: 90;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--glass-shadow);
   max-width: 90vw;
   text-align: center;
+  animation: toastIn 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
 }
 
 html[data-theme="dark"] .toast {
-  background: var(--emerald);
-  color: #04120d;
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  color: var(--text);
 }
 
 /* ---- Sub-pages (profile.html / report.html) ---------------------------- */
@@ -1315,4 +2071,183 @@ html[data-theme="dark"] .toast {
   .stat-grid {
     grid-template-columns: 1fr;
   }
+  /* The three breakdown chips (Target − Makan + Olahraga) squeeze to ~104px
+     at 360px and the labels wrap ugly. Let them stack the label under the
+     value and shrink the separators so the row still fits. */
+  .hero-breakdown {
+    gap: 4px;
+  }
+  .bd {
+    padding: 8px 4px;
+  }
+  .bd-k {
+    font-size: 0.6rem;
+  }
+  .bd-v {
+    font-size: 0.92rem;
+  }
+  .bd-sep {
+    font-size: 0.85rem;
+  }
+}
+
+
+/* ===================== Water tracker ===================== */
+.water-wrap {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 6px 0 14px;
+}
+
+/* The cup is a rounded box whose fill is a second box anchored to its
+ * bottom; setting the fill's height to the goal percentage animates it. */
+.water-cup {
+  position: relative;
+  width: 74px;
+  height: 110px;
+  flex: 0 0 74px;
+  border-radius: 12px 12px 26px 26px;
+  border: 2px solid var(--border, rgba(255, 255, 255, 0.18));
+  background: rgba(56, 189, 248, 0.08);
+  overflow: hidden;
+  box-shadow: inset 0 -14px 24px -18px rgba(56, 189, 248, 0.9);
+}
+
+.water-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0%;
+  background: linear-gradient(
+    180deg,
+    rgba(56, 189, 248, 0.95),
+    rgba(14, 116, 190, 0.95)
+  );
+  transition: height 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Slight wave at the surface so the top edge is not a flat line. */
+.water-fill::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 0;
+  right: 0;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(125, 211, 252, 0.75);
+}
+
+/* Bubbles drift up while filling, paused once the goal is hit. */
+.water-bubble {
+  position: absolute;
+  bottom: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(186, 230, 253, 0.9);
+  animation: waterBubble 2.6s ease-in infinite;
+}
+.water-bubble.b1 { left: 18%; animation-delay: 0s; }
+.water-bubble.b2 { left: 52%; width: 5px; height: 5px; animation-delay: 0.9s; }
+.water-bubble.b3 { left: 78%; width: 9px; height: 9px; animation-delay: 1.7s; }
+
+@keyframes waterBubble {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 0.85; }
+  100% { transform: translateY(-104px); opacity: 0; }
+}
+
+.water-cup.goal-hit .water-bubble {
+  animation-play-state: paused;
+}
+
+.water-cup.goal-hit {
+  animation: waterPulse 1.4s ease-out 2;
+}
+
+@keyframes waterPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.water-fill.full {
+  background: linear-gradient(
+    180deg,
+    rgba(52, 211, 153, 0.95),
+    rgba(5, 150, 105, 0.95)
+  );
+}
+
+.water-meta { min-width: 0; }
+.water-total {
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.water-sub { font-size: 0.85rem; opacity: 0.65; margin-top: 2px; }
+
+.water-btns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.btn-glass {
+  padding: 10px 4px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.1);
+  color: inherit;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+.btn-glass:hover { background: rgba(56, 189, 248, 0.2); }
+.btn-glass:active { transform: scale(0.94); }
+
+.btn-glass.custom span { opacity: 0.9; font-weight: 600; }
+
+.water-log { margin-top: 12px; display: flex; flex-direction: column; gap: 2px; }
+
+.water-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 2px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  animation: itemPop 0.3s ease both;
+}
+
+.wr-main { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.wr-ml { font-weight: 700; }
+.wr-label {
+  font-size: 0.78rem;
+  opacity: 0.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wr-side { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.wr-time { font-size: 0.78rem; opacity: 0.5; font-variant-numeric: tabular-nums; }
+.wr-del {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.45;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.wr-del:hover { opacity: 1; background: rgba(239, 68, 68, 0.15); }
+
+@media (prefers-reduced-motion: reduce) {
+  .water-fill { transition: none; }
+  .water-bubble { animation: none; }
+  .water-cup.goal-hit { animation: none; }
 }

@@ -17,13 +17,23 @@
 
     let response;
     try {
+      // `raw` = caller supplied a FormData (photo upload). Never set a
+      // Content-Type for those; the browser must own the boundary string.
+      const headers = opts.raw
+        ? Object.assign({}, opts.headers || {})
+        : Object.assign(
+            { "Content-Type": "application/json" },
+            opts.headers || {}
+          );
+      const body = opts.body
+        ? opts.raw
+          ? opts.body
+          : JSON.stringify(opts.body)
+        : undefined;
       response = await fetch(BASE + path, {
         method: opts.method || "GET",
-        headers: Object.assign(
-          { "Content-Type": "application/json" },
-          opts.headers || {}
-        ),
-        body: opts.body ? JSON.stringify(opts.body) : undefined,
+        headers: headers,
+        body: body,
         signal: controller.signal,
       });
     } catch (err) {
@@ -87,6 +97,15 @@
       request("/meals/" + meal, { method: "POST", body: entry }),
     deleteMeal: (meal, entryId) =>
       request("/meals/" + meal + "/" + entryId, { method: "DELETE" }),
+    deleteMealGroup: (meal, groupName) =>
+      request("/meals/" + meal + "/group/" + encodeURIComponent(groupName), {
+        method: "DELETE",
+      }),
+    renameMealGroup: (meal, groupName, newName) =>
+      request("/meals/" + meal + "/group/" + encodeURIComponent(groupName), {
+        method: "PATCH",
+        body: { name: newName },
+      }),
 
     addExercise: (entry) =>
       request("/exercises", { method: "POST", body: entry }),
@@ -95,6 +114,14 @@
 
     logWeight: (weightKg) =>
       request("/weight", { method: "POST", body: { weight_kg: weightKg } }),
+
+    // Water: one entry per drink. Passing no label keeps the log clean for
+    // quick taps on a glass button.
+    addWater: (ml, label) =>
+      request("/water", { method: "POST", body: { ml: ml, label: label || "" } }),
+    deleteWater: (entryId) =>
+      request("/water/" + entryId, { method: "DELETE" }),
+    resetWater: () => request("/water/reset", { method: "POST" }),
 
     getFavorites: () => request("/favorites"),
     addFavorite: (fav) => request("/favorites", { method: "POST", body: fav }),
@@ -109,6 +136,8 @@
     aiStatus: () => request("/ai/status"),
     parseFoods: (text) =>
       request("/ai/parse-foods", { method: "POST", body: { text: text } }),
+    photoFoods: (formData) =>
+      request("/ai/photo-foods", { method: "POST", body: formData, raw: true }),
     suggestRecipes: (pantry, targetKcal) =>
       request("/ai/recipes", {
         method: "POST",

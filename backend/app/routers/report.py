@@ -7,13 +7,16 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from .. import nutrition
+from ..config import local_now
 from ..data_context import DataContext, from_request, require_user
 
 router = APIRouter()
 
 
-def _week_boundaries(weeks_back: int) -> tuple[date, date]:
-    today = date.today()
+def _week_boundaries(weeks_back: int = 0) -> tuple[date, date]:
+    # date.today() already resolves in local time; the report window and the
+    # log day must use the same zone or the last bar drifts a day.
+    today = local_now().date()
     end = today - timedelta(days=weeks_back * 7)
     start = end - timedelta(days=6)
     return start, end
@@ -44,6 +47,7 @@ def week_payload(ctx: DataContext, weeks_back: int = 0) -> dict:
     weights = []
     total_intake = 0.0
     total_protein = 0.0
+    total_water = 0.0
     counted = 0
     logged_days = 0
 
@@ -70,13 +74,22 @@ def week_payload(ctx: DataContext, weeks_back: int = 0) -> dict:
             counted += 1
         if day and day.get("weight_kg"):
             weights.append({"date": iso, "weight_kg": day["weight_kg"]})
+
+        # Water is tracked per day, so it is totalled in the same pass.
+        total_water += (
+            sum(w.get("ml", 0) for w in day.get("waters", [])) if day else 0.0
+        )
         cursor += timedelta(days=1)
 
     trend = nutrition.weight_trend(weights) if weights else None
     plateau = nutrition.detect_plateau(weights) if weights else None
 
     return {
-        "range": {"start": start.isoformat(), "end": end.isoformat(), "weeks_back": weeks_back},
+        "range": {
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "weeks_back": weeks_back,
+        },
         "target_kcal": round(target_kcal),
         "bars": bars,
         "weights": weights,
@@ -90,6 +103,8 @@ def week_payload(ctx: DataContext, weeks_back: int = 0) -> dict:
             "avg_protein_g": round(total_protein / counted, 1) if counted else 0,
             "logged_days": logged_days,
             "protein_target_g": round(protein_target, 1),
+            "avg_water_ml": round(total_water / counted) if counted else 0,
+            "water_target_ml": nutrition.water_target(profile),
         },
     }
 

@@ -1,8 +1,8 @@
 """Feature #2: free-text food log parsing.
 
 Strategy: match the local Indonesian database first (instant, free), then
-ask Atria Dawn to estimate whatever is left (restaurant dishes, odd
-portions). If Atria is unavailable, the DB result stands on its own.
+ask Gemini to estimate whatever is left (restaurant dishes, odd
+portions). If Gemini is unavailable, the DB result stands on its own.
 """
 
 from __future__ import annotations
@@ -11,7 +11,8 @@ import json
 import logging
 import re
 
-from .atria_client import chat, extract_json, num
+from .atria_client import extract_json, num
+from .gemini_client import text_chat
 from .config import get_settings
 from .foods import search_foods
 
@@ -53,19 +54,19 @@ def parse_foods(text: str) -> dict:
 
     local = _local_parse(text)
 
-    if settings.atria_ready:
+    if settings.gemini_ready:
         try:
             payload = {
                 "text": text,
                 "instruction": (
                     "Isi JSON sesuai schema. Untuk makanan yang sudah ada di "
                     "local_matches, pakai angka itu dan set source='local'. "
-                    "Estimasi sisanya dan set source='atria'."
+                    "Estimasi sisanya dan set source='gemini'."
                 ),
                 "schema": PARSE_SCHEMA,
                 "local_matches": local["foods"] or None,
             }
-            content = chat(
+            content = text_chat(
                 [
                     {"role": "system", "content": PARSE_SYSTEM},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
@@ -74,9 +75,16 @@ def parse_foods(text: str) -> dict:
             )
             parsed = extract_json(content)
             if parsed and isinstance(parsed, dict) and parsed.get("foods") is not None:
-                parsed["source"] = "atria"
-                parsed["atria_raw"] = content
-                return _normalise_parse(parsed, text)
+                # Filter out invalid non-food items returned with zero kcal/confidence 0
+                valid_foods = [
+                    f for f in parsed.get("foods", [])
+                    if isinstance(f, dict) and (num(f.get("kcal")) > 0 or num(f.get("protein_g")) > 0 or num(f.get("carb_g")) > 0 or num(f.get("fat_g")) > 0)
+                ]
+                if valid_foods or local["foods"]:
+                    parsed["foods"] = valid_foods or local["foods"]
+                    parsed["source"] = "gemini"
+                    parsed["gemini_raw"] = content
+                    return _normalise_parse(parsed, text)
             log.info("parse_foods: no usable JSON from Atria, using local matches")
         except Exception as exc:
             log.warning("parse_foods: Atria failed, using local fallback: %s", exc)
@@ -164,7 +172,7 @@ def _normalise_parse(parsed: dict, original: str) -> dict:
                 "portion_g": int(num(f.get("portion_g")) or 100),
                 "servings": num(f.get("servings")) or 1.0,
                 "volume_eating": bool(f.get("volume_eating")),
-                "source": str(f.get("source") or "atria"),
+                "source": "gemini",
             }
         )
     parsed["foods"] = foods

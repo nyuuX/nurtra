@@ -67,15 +67,25 @@ def extract_json(text: str | None) -> Any:
     if not text:
         return None
     text = text.strip()
+    # The fence removal was originally for Atria, but Gemini 3.x also wraps
+    # its JSON in ```json even when asked not to, and the trailing fence
+    # lands before the last "}" — so the balanced-brace fallback below is
+    # what actually saves these replies.
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
+    # A trailing ``` can appear mid-document after the JSON itself (a
+    # closing fence plus more text); strip any fence still present.
+    text = text.replace("```", "")
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    # Fall back to the first balanced {...} or [...] region
+    # Fall back to the first balanced {...} region. Prefer an object over an
+    # array: a fenced object whose closing brace is missing mid-document can
+    # still match an inner array first, which would hand callers a list where
+    # they expect a dict. Object-first keeps that ordering correct.
     for pattern in (r"\{[\s\S]*\}", r"\[[\s\S]*\]"):
         match = re.search(pattern, text)
         if match:

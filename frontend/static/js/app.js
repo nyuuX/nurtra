@@ -65,6 +65,17 @@ so the profile and report pages reuse them without duplicating code.
       .replace(/"/g, "&quot;");
   }
 
+  async function logWater(ml) {
+    // One tap = one glass, so this stays fire-and-forget beyond the toast.
+    if (!(ml > 0)) return;
+    try {
+      const d = await api.addWater(ml);
+      renderDashboard(d);
+    } catch (err) {
+      toast(err.message || "Gagal menambah air");
+    }
+  }
+
   function toast(msg) {
     const t = $("toast");
     if (!t) return;
@@ -187,11 +198,13 @@ so the profile and report pages reuse them without duplicating code.
   function renderDashboard(d) {
     $("dateLabel").textContent = fmtDateLong(d.date);
 
-    // Hero ring: ring arc tracks consumed/target, the number shows remaining
+    // Hero ring: ring arc tracks consumed/target, the number shows remaining.
+    // Exercise calories are deliberately excluded from the ring and the
+    // remaining number — they are reported separately, never credited back.
     const remaining = d.remaining_kcal;
     const ring = $("ringProgress");
     const C = 2 * Math.PI * 100;
-    const consumed = Math.max(0, d.target_kcal - remaining);
+    const consumed = Math.max(0, d.food_kcal);
     const pct = Math.min(1, consumed / Math.max(1, d.target_kcal));
     ring.setAttribute("stroke-dasharray", C.toFixed(1));
     ring.setAttribute("stroke-dashoffset", (C * (1 - pct)).toFixed(1));
@@ -202,15 +215,23 @@ so the profile and report pages reuse them without duplicating code.
       : "kkal tersisa";
     $("heroCard").classList.toggle("over", d.over);
 
-    // Breakdown: Target - Makanan + Olahraga
+    // Breakdown: Target − Makanan = Sisa. "Terbakar" is shown beside it as
+    // information only — it no longer adds back into the remaining quota.
     $("bdTarget").textContent = fmt(d.target_kcal);
     $("bdFood").textContent = fmt(d.food_kcal);
+    $("bdRemaining").textContent = fmt(remaining);
     $("bdExercise").textContent = fmt(d.exercise_kcal);
 
     // Fasting chip
     if (d.fasting && d.fasting.enabled) {
       $("fastingChip").hidden = false;
-      $("fastingText").textContent = d.fasting.eating_now
+      // While fasting, the whole chip + the Log Makanan card turn red so the
+      // "outside the eating window" state is visible at a glance, not just in
+      // the dot.
+      const eating = !!d.fasting.eating_now;
+      $("fastingChip").classList.toggle("is-fasting", !eating);
+      $("mealCard").classList.toggle("is-fasting", !eating);
+      $("fastingText").textContent = eating
         ? "Jendela makan " +
           d.fasting.protocol +
           " · " +
@@ -223,10 +244,13 @@ so the profile and report pages reuse them without duplicating code.
           " · makan " +
           d.fasting.window_start +
           "–" +
-          d.fasting.window_end;
-      $("fastingDot").classList.toggle("fasting", !d.fasting.eating_now);
+          d.fasting.window_end +
+          " · di luar jendela";
+      $("fastingDot").classList.toggle("fasting", !eating);
     } else {
       $("fastingChip").hidden = true;
+      $("fastingChip").classList.remove("is-fasting");
+      $("mealCard").classList.remove("is-fasting");
     }
 
     // Macros (protein emphasized)
@@ -299,9 +323,100 @@ so the profile and report pages reuse them without duplicating code.
     $("exerciseList").innerHTML = exs.length
       ? exs.map(renderExerciseItem).join("")
       : '<div class="empty-meal">Belum ada olahraga hari ini</div>';
+
+    renderWater(d);
+  }
+
+  function renderWater(d) {
+    const have = Number(d.water_ml || 0);
+    const target = Number(d.water_target_ml || 0);
+    const pct = target > 0 ? Math.min(100, (have / target) * 100) : 0;
+
+    // The fill is a div anchored to the cup's bottom, so its height is the
+    // share of the goal reached. Capped at 100 so an over-goal day looks
+    // full rather than overflowing the cup.
+    const fill = $("waterFill");
+    fill.style.height = pct.toFixed(1) + "%";
+    fill.classList.toggle("full", pct >= 100);
+    $("waterCup").classList.toggle("goal-hit", pct >= 100);
+
+    $("waterTotal").textContent =
+      Math.round(have).toLocaleString("id-ID") + " ml";
+    $("waterSub").textContent = target
+      ? "dari " + Math.round(target).toLocaleString("id-ID") + " ml"
+      : "tetapkan target di profil";
+
+    const waters = d.waters || [];
+    $("waterLog").innerHTML = waters.length
+      ? waters
+          .map(function (w) {
+            return (
+              '<div class="water-row">' +
+              '<div class="wr-main">' +
+              '<span class="wr-ml">' +
+              Math.round(w.ml).toLocaleString("id-ID") +
+              " ml</span>" +
+              (w.label
+                ? '<span class="wr-label">' + escapeHtml(w.label) + "</span>"
+                : "") +
+              "</div>" +
+              '<div class="wr-side">' +
+              '<span class="wr-time">' +
+              escapeHtml(w.time || "") +
+              "</span>" +
+              '<button class="wr-del" data-water-del="' +
+              escapeHtml(w.id) +
+              '" aria-label="Hapus air">✕</button>' +
+              "</div>" +
+              "</div>"
+            );
+          })
+          .join("")
+      : "";
   }
 
   function renderMealItem(it) {
+    // A group row collapses several entries into one line the user named
+    // themselves; tapping it expands to show the members.
+    if (it.is_group) {
+      const kids = (it.items || [])
+        .map(function (k) {
+          return (
+            '<div class="mi-sub">' +
+            escapeHtml(k.name) +
+            '<span class="mi-sub-kcal">' +
+            Math.round(k.kcal) +
+            " kkal</span></div>"
+          );
+        })
+        .join("");
+      return (
+        '<div class="meal-item meal-group" data-group="' +
+        escapeHtml(it.group) +
+        '" data-meal-key="' +
+        escapeHtml(it.meal || "") +
+        '">' +
+        '<div class="mi-group-row">' +
+        '<button class="mi-caret" data-toggle-group="1" aria-label="Buka grup">▾</button>' +
+        '<div class="mi-name">' +
+        escapeHtml(it.name) +
+        ' <span class="tag-grp">' +
+        (it.items || []).length +
+        " item</span></div>" +
+        '<div class="mi-meta">' +
+        "<span>" +
+        Math.round(it.kcal) +
+        " kkal</span>" +
+        '<button class="icon-btn" data-rename-group="1" title="Ganti nama grup">✎</button>' +
+        '<button class="icon-btn" data-del-group="1" title="Hapus grup">✕</button>' +
+        "</div>" +
+        "</div>" +
+        '<div class="mi-group-items">' +
+        kids +
+        "</div>" +
+        "</div>"
+      );
+    }
     return (
       '<div class="meal-item">' +
       '<div class="mi-name">' +
@@ -365,19 +480,111 @@ so the profile and report pages reuse them without duplicating code.
   // ---- Sheets ---------------------------------------------------------------
 
   function openSheet(id) {
-    $(id).hidden = false;
+    const sheet = $(id);
+    sheet.hidden = false;
     $("sheetBackdrop").hidden = false;
+    // Fresh open: make sure no leftover drag transform or settle class
+    // from a previous session lingers.
+    sheet.classList.remove("sheet-settle");
+    sheet.style.transform = "";
   }
 
   function closeSheets() {
-    ["foodSheet", "exerciseSheet", "quickSheet", "weightSheet"].forEach(
+    ["foodSheet", "exerciseSheet", "quickSheet", "weightSheet", "waterSheet"].forEach(
       function (id) {
         const el = $(id);
-        if (el) el.hidden = true;
+        if (el) {
+          el.hidden = true;
+          el.classList.remove("sheet-settle", "dragging");
+          el.style.transform = "";
+        }
       },
     );
     $("sheetBackdrop").hidden = true;
   }
+
+  /* ---- Sheet drag-to-dismiss ------------------------------------------- *
+   * Drag the grip down to pull the sheet, release to either settle back or
+   * close if pulled past a threshold. Uses pointer events so it works with
+   * mouse, touch and pen from one code path. */
+  const DRAG_CLOSE_RATIO = 0.4;
+
+  /* Desktop centers the sheet with `transform: translateX(-50%)` in CSS.
+   * Setting inline `translateY(...)` alone would clobber that and yank the
+   * sheet off-center while dragging. Compose both instead. */
+  function applyOffset(sheet, offset) {
+    const isWide = window.matchMedia("(min-width: 640px)").matches;
+    sheet.style.transform = isWide
+      ? "translateX(-50%) translateY(" + offset + "px)"
+      : "translateY(" + offset + "px)";
+  }
+
+  function bindSheetDrag(sheet) {
+    const grip = sheet.querySelector(".sheet-grip");
+    if (!grip) return;
+
+    let startY = 0;
+    let dragging = false;
+    let maxOffset = 0; // sheet height, measured on drag start
+
+    grip.addEventListener("pointerdown", function (e) {
+      if (sheet.hidden) return;
+      dragging = true;
+      startY = e.clientY;
+      maxOffset = sheet.getBoundingClientRect().height;
+      sheet.classList.add("dragging");
+      sheet.classList.remove("sheet-settle");
+      grip.setPointerCapture(e.pointerId);
+      // Prevent the scroll container from fighting the drag.
+      e.preventDefault();
+    });
+
+    grip.addEventListener("pointermove", function (e) {
+      if (!dragging) return;
+      const dy = e.clientY - startY;
+      // Only allow pulling DOWN. Dragging up would collide with the sheet's
+      // own scroll region, so clamp at 0.
+      const offset = Math.max(0, dy);
+      // Desktop centers the sheet via `transform: translateX(-50%)` in CSS;
+      // preserve that X component so dragging doesn't yank the sheet off
+      // center, and only add the vertical offset on top of it.
+      applyOffset(sheet, offset);
+      // Fade the backdrop proportionally so the layer reads as detaching.
+      const backdrop = $("sheetBackdrop");
+      if (backdrop) backdrop.style.opacity = String(1 - offset / maxOffset);
+    });
+
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      const dy = (e && e.clientY ? e.clientY : startY) - startY;
+      const offset = Math.max(0, dy);
+
+      sheet.classList.remove("dragging");
+      sheet.classList.add("sheet-settle");
+      // Empty string would drop the desktop translateX(-50%) too; clear only
+      // the inline style so the stylesheet transform takes over again.
+      sheet.style.transform = "";
+      const backdrop = $("sheetBackdrop");
+      if (backdrop) backdrop.style.opacity = "";
+
+      // Pulled far enough down -> treat as a dismiss.
+      if (offset > maxOffset * DRAG_CLOSE_RATIO) {
+        closeSheets();
+      }
+    }
+
+    grip.addEventListener("pointerup", endDrag);
+    grip.addEventListener("pointercancel", endDrag);
+  }
+
+  // Every sheet gets the same drag behaviour.
+  ["foodSheet", "exerciseSheet", "quickSheet", "weightSheet", "waterSheet"].forEach(
+    function (id) {
+      const sheet = $(id);
+      if (sheet) bindSheetDrag(sheet);
+    },
+  );
 
   // ---- Food sheet -----------------------------------------------------------
 
@@ -391,6 +598,9 @@ so the profile and report pages reuse them without duplicating code.
     $("aiParseBox").hidden = true;
     $("aiParseResult").innerHTML = "";
     $("aiParseText").value = "";
+    $("photoBox").hidden = true;
+    $("photoResult").innerHTML = "";
+    $("groupName").value = "";
     await loadChips();
     openSheet("foodSheet");
     setTimeout(function () {
@@ -535,6 +745,7 @@ so the profile and report pages reuse them without duplicating code.
     const v = parseFloat($("portionRange").value) || 1;
     const f = state.pendingFood;
     if (!f) return;
+    const group = ($("groupName").value || "").trim();
     try {
       const updated = await api.addMeal(state.pendingMeal, {
         name: f.name,
@@ -545,6 +756,7 @@ so the profile and report pages reuse them without duplicating code.
         portion_g: Math.round((f.portion_g || 100) * v),
         servings: v,
         volume_eating: !!f.volume_eating,
+        group: group || null,
       });
       closeSheets();
       renderDashboard(updated);
@@ -555,6 +767,235 @@ so the profile and report pages reuse them without duplicating code.
   }
 
   // ---- AI parse --------------------------------------------------------------
+
+  async function runPhotoRecognise(file) {
+    const box = $("photoBox");
+    const img = $("photoPreview");
+    const status = $("photoStatus");
+    const result = $("photoResult");
+    box.hidden = false;
+    result.innerHTML = "";
+    status.textContent = "Mengunggah foto…";
+    status.hidden = false;
+    img.hidden = true;
+
+    const url = URL.createObjectURL(file);
+    img.src = url;
+    img.onload = function () {
+      img.hidden = false;
+      status.hidden = true;
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+    };
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    status.hidden = false;
+    status.textContent = "Mengenali makanan dengan AI…";
+    try {
+      const res = await api.photoFoods(fd);
+      renderPhotoResult(res);
+    } catch (err) {
+      status.hidden = true;
+      result.innerHTML = "Gagal: " + escapeHtml(err.message);
+    }
+  }
+
+  function renderPhotoResult(res) {
+    const result = $("photoResult");
+    const status = $("photoStatus");
+    status.hidden = true;
+    const items = res.foods && res.foods.length ? res.foods : [];
+    const cands = res.candidates && res.candidates.length ? res.candidates : [];
+
+    if (!items.length && !cands.length) {
+      result.innerHTML = escapeHtml(res.message || "Tidak ada makanan terdeteksi.");
+      return;
+    }
+
+    const source =
+      res.source === "local-fallback"
+        ? "Pilih manual"
+        : res.source === "local-db"
+          ? "database lokal"
+          : "AI";
+    const list = items.length ? items : cands;
+
+    // Multi-select: every detected item is a checkbox row, all ticked by
+    // default so "Tambah" sends the whole plate. One food per row was the
+    // old behaviour and forced re-photographing a multi-item meal.
+    const header =
+      '<div class="photo-head">' +
+      '<label class="photo-all">' +
+      '<input type="checkbox" id="photoAll" checked> Pilih semua' +
+      "</label>" +
+      "<strong>" +
+      list.length +
+      (items.length ? " makanan dikenali" : " kandidat") +
+      "</strong>" +
+      '<span class="photo-source">' +
+      escapeHtml(source) +
+      "</span>" +
+      "</div>";
+
+    const rows = list
+      .map(function (f, i) {
+        const tag = cands.length ? "data-photo-cand" : "data-photo-food";
+        const sub = cands.length
+          ? Math.round(f.kcal) + " kkal · atur porsi"
+          : Math.round(f.kcal) +
+            " kkal · " +
+            (f.protein_g || 0) +
+            " g protein · " +
+            Math.round(f.portion_g || 0) +
+            " g" +
+            (f.source === "gemini-needs-edit"
+              ? " · perlu diisi manual"
+              : f.source === "gemini"
+                ? " · estimasi AI"
+                : "");
+        return (
+          '<label class="food-row food-check" ' +
+          tag +
+          '="' +
+          i +
+          '">' +
+          '<input type="checkbox" data-photo-idx="' +
+          i +
+          '" checked>' +
+          '<div><div class="fr-name">' +
+          escapeHtml(f.name) +
+          "</div>" +
+          '<div class="fr-sub">' +
+          escapeHtml(sub) +
+          "</div></div>" +
+          '<div class="fr-kcal">' +
+          Math.round(f.kcal) +
+          "</div>" +
+          "</label>"
+        );
+      })
+      .join("");
+
+    const total = list.reduce(function (s, f) {
+      return s + (f.kcal || 0);
+    }, 0);
+    // Group field lives here (not only in the hidden portion box) so the
+    // photo flow can name a group without opening the manual portion editor.
+    const groupField =
+      '<label class="field field-group photo-group-name">' +
+      '<span class="field-label">Nama grup (opsional)</span>' +
+      '<input id="photoGroupName" type="text" maxlength="60" ' +
+      'placeholder="Contoh: Paket A · Kos Bu Ani" autocomplete="off">' +
+      "</label>";
+    const actions =
+      groupField +
+      '<button id="btnPhotoAddAll" class="btn btn-primary btn-wide">' +
+      "Tambahkan yang dipilih (" +
+      list.length +
+      ")" +
+      "</button>" +
+      '<div class="photo-total">Total ' +
+      Math.round(total) +
+      " kkal · " +
+      escapeHtml(source) +
+      "</div>";
+
+    result.innerHTML = header + rows + actions;
+    result.dataset.photoFoods = JSON.stringify(items);
+    result.dataset.photoCands = JSON.stringify(cands);
+  }
+
+  function photoSelectedFoods() {
+    const result = $("photoResult");
+    const items = JSON.parse(result.dataset.photoFoods || "[]");
+    const cands = JSON.parse(result.dataset.photoCands || "[]");
+    const list = items.length ? items : cands;
+    const out = [];
+    result.querySelectorAll("[data-photo-idx]").forEach(function (cb) {
+      if (!cb.checked) return;
+      const f = list[parseInt(cb.dataset.photoIdx, 10)];
+      if (!f) return;
+      out.push({
+        id: "photo-" + Date.now() + "-" + Math.floor(Math.random() * 1e4),
+        name: f.name,
+        kcal: f.kcal,
+        protein_g: f.protein_g || 0,
+        carb_g: f.carb_g || 0,
+        fat_g: f.fat_g || 0,
+        portion_g: f.portion_g || 100,
+        volume_eating: !!f.volume_eating,
+      });
+    });
+    return out;
+  }
+
+  function syncPhotoSelectAll() {
+    const result = $("photoResult");
+    const boxes = Array.from(result.querySelectorAll("[data-photo-idx]"));
+    const master = $("photoAll");
+    if (!master) return;
+    const checked = boxes.filter(function (b) {
+      return b.checked;
+    }).length;
+    master.checked = boxes.length > 0 && checked === boxes.length;
+    const btn = $("btnPhotoAddAll");
+    if (btn) {
+      btn.textContent = "Tambahkan yang dipilih (" + checked + ")";
+      btn.disabled = checked === 0;
+    }
+  }
+
+  async function addPhotoFoods() {
+    const foods = photoSelectedFoods();
+    if (!foods.length) {
+      toast("Pilih minimal satu makanan");
+      return;
+    }
+    // Prefer the group field that renders with the photo results; fall back
+    // to the manual-flow field if a user typed there first.
+    const groupName = (
+      ($("photoGroupName") ? $("photoGroupName").value : "") ||
+      ($("groupName") ? $("groupName").value : "")
+    ).trim();
+    const btn = $("btnPhotoAddAll");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Menambahkan…";
+    }
+    try {
+      // POST each selected item to the meal; the backend returns the day
+      // summary, so the last response carries the fully-updated totals.
+      let updated = null;
+      for (let i = 0; i < foods.length; i++) {
+        const f = foods[i];
+        updated = await api.addMeal(state.pendingMeal, {
+          name: f.name,
+          kcal: f.kcal,
+          protein_g: f.protein_g || 0,
+          carb_g: f.carb_g || 0,
+          fat_g: f.fat_g || 0,
+          portion_g: f.portion_g || 100,
+          servings: 1,
+          volume_eating: !!f.volume_eating,
+          group: groupName || null,
+        });
+      }
+      $("photoBox").hidden = true;
+      closeSheets();
+      if (updated) renderDashboard(updated);
+      toast(foods.length + " makanan ditambahkan");
+    } catch (err) {
+      toast(err.message);
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Tambahkan yang dipilih";
+      }
+    }
+  }
 
   async function runAIParse() {
     const text = $("aiParseText").value.trim();
@@ -576,7 +1017,7 @@ so the profile and report pages reuse them without duplicating code.
         '<div style="margin-bottom:6px"><strong>' +
         foods.length +
         " makanan dikenali</strong> · " +
-        (res.source === "atria" ? "Atria Dawn" : "database lokal") +
+        (res.source === "atria" ? "Atria Dawn" : res.source === "gemini" ? "Gemini" : "database lokal") +
         " · confidence " +
         Math.round((res.confidence || 0) * 100) +
         "%</div>" +
@@ -724,6 +1165,50 @@ so the profile and report pages reuse them without duplicating code.
     }
   }
 
+  async function deleteMealGroup(meal, groupName) {
+    const n = state.today
+      ? (state.today.meals || [])
+          .filter(function (m) {
+            return m.key === meal;
+          })
+          .flatMap(function (m) {
+            return m.items || [];
+          })
+          .filter(function (it) {
+            return it.is_group && it.group === groupName;
+          })
+          .reduce(function (s, g) {
+            return s + (g.items || []).length;
+          }, 0)
+      : 0;
+    if (!confirm("Hapus grup \"" + groupName + "\" (" + n + " item)?")) return;
+    try {
+      const updated = await api.deleteMealGroup(meal, groupName);
+      renderDashboard(updated);
+      toast("Grup dihapus");
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  async function renameMealGroup(meal, groupName) {
+    const newName = prompt("Nama grup baru:", groupName);
+    if (newName === null) return; // cancelled
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      toast("Nama grup tidak boleh kosong");
+      return;
+    }
+    if (trimmed === groupName) return;
+    try {
+      const updated = await api.renameMealGroup(meal, groupName, trimmed);
+      renderDashboard(updated);
+      toast("Grup diganti nama");
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
   async function deleteExerciseEntry(entryId) {
     try {
       const updated = await api.deleteExercise(entryId);
@@ -795,9 +1280,52 @@ so the profile and report pages reuse them without duplicating code.
     $("btnCloseExSheet").addEventListener("click", closeSheets);
     $("btnCloseQuickSheet").addEventListener("click", closeSheets);
     $("btnCloseWeightSheet").addEventListener("click", closeSheets);
+    $("btnCloseWaterSheet").addEventListener("click", closeSheets);
     $("sheetBackdrop").addEventListener("click", closeSheets);
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") closeSheets();
+    });
+
+    // Water: tap a glass size, or open the custom sheet for a manual amount.
+    $("waterBtns").addEventListener("click", function (e) {
+      const glass = e.target.closest("[data-water]");
+      if (glass) {
+        logWater(Number(glass.dataset.water));
+        return;
+      }
+      // The custom button has no data-water attribute.
+      if (e.target.closest("#waterBtns .custom")) openSheet("waterSheet");
+    });
+    $("btnWaterReset").addEventListener("click", async function () {
+      // Reset is destructive, but the whole day rolls over at midnight anyway.
+      if (!confirm("Hapus semua catatan air hari ini?")) return;
+      try {
+        renderDashboard(await api.resetWater());
+      } catch (err) {
+        toast(err.message || "Gagal mereset air");
+      }
+    });
+    $("waterLog").addEventListener("click", async function (e) {
+      const del = e.target.closest("[data-water-del]");
+      if (!del) return;
+      try {
+        renderDashboard(await api.deleteWater(del.dataset.waterDel));
+      } catch (err) {
+        toast(err.message || "Gagal menghapus air");
+      }
+    });
+    $("waterForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const ml = Number(e.target.ml.value || 0);
+      if (!(ml > 0)) return;
+      const label = e.target.label.value.trim();
+      try {
+        renderDashboard(await api.addWater(ml, label));
+        closeSheets();
+        e.target.reset();
+      } catch (err) {
+        toast(err.message || "Gagal menambah air");
+      }
     });
 
     // Meal + exercise rows (event delegation)
@@ -805,6 +1333,33 @@ so the profile and report pages reuse them without duplicating code.
       const addBtn = e.target.closest("[data-add-meal]");
       if (addBtn) {
         openFoodSheet(addBtn.dataset.addMeal);
+        return;
+      }
+      // Group caret -> expand/collapse the member list.
+      const caret = e.target.closest("[data-toggle-group]");
+      if (caret) {
+        const group = caret.closest(".meal-group");
+        // Toggle a class on the row (not the `hidden` attribute on the
+        // list): CSS transitions max-height/opacity from the class, and the
+        // caret rotates with the same state via .is-open.
+        const open = !group.classList.contains("is-open");
+        group.classList.toggle("is-open", open);
+        caret.classList.toggle("is-open", open);
+        caret.setAttribute("aria-expanded", open ? "true" : "false");
+        return;
+      }
+      // Rename a group: prompt for the new label.
+      const ren = e.target.closest("[data-rename-group]");
+      if (ren) {
+        const group = ren.closest(".meal-group");
+        renameMealGroup(group.dataset.mealKey, group.dataset.group);
+        return;
+      }
+      // Delete a whole group.
+      const delGrp = e.target.closest("[data-del-group]");
+      if (delGrp) {
+        const group = delGrp.closest(".meal-group");
+        deleteMealGroup(group.dataset.mealKey, group.dataset.group);
         return;
       }
       const del = e.target.closest("[data-del-meal]");
@@ -856,6 +1411,19 @@ so the profile and report pages reuse them without duplicating code.
       if (!box.hidden) $("aiParseText").focus();
     });
     $("btnAIParseGo").addEventListener("click", runAIParse);
+
+    // Photo -> food recognition: hidden file input, opened by the camera
+    // button. accept="image/*" + capture="environment" gives the phone
+    // camera; desktop falls back to the file picker.
+    $("btnPhotoFood").addEventListener("click", function () {
+      $("photoBox").hidden = false;
+      $("photoInput").click();
+    });
+    $("photoInput").addEventListener("change", function () {
+      const file = this.files && this.files[0];
+      if (file) runPhotoRecognise(file);
+      this.value = ""; // allow re-picking the same file
+    });
     $("aiParseResult").addEventListener("click", function (e) {
       const row = e.target.closest("[data-ai-food]");
       if (!row) return;
@@ -872,6 +1440,31 @@ so the profile and report pages reuse them without duplicating code.
           portion_g: f.portion_g || 100,
           volume_eating: !!f.volume_eating,
         });
+      }
+    });
+
+    $("photoResult").addEventListener("click", function (e) {
+      // "Tambahkan yang dipilih" -> add every ticked item in one pass.
+      const addBtn = e.target.closest("#btnPhotoAddAll");
+      if (addBtn) {
+        addPhotoFoods();
+        return;
+      }
+      // Master checkbox toggles all rows.
+      if (e.target.id === "photoAll") {
+        const master = $("photoAll");
+        document
+          .querySelectorAll("#photoResult [data-photo-idx]")
+          .forEach(function (cb) {
+            cb.checked = master.checked;
+          });
+        syncPhotoSelectAll();
+      }
+    });
+    $("photoResult").addEventListener("change", function (e) {
+      // A single row toggled -> refresh the count and the master checkbox.
+      if (e.target.matches("[data-photo-idx]")) {
+        syncPhotoSelectAll();
       }
     });
 
