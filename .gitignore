@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.venv/
+node_modules/
+dist/
+.DS_Store
+data/.session_secret
+# The app's SQLite-like store. Contains real user emails, password hashes,
+# and personal food logs — never commit this. It is recreated on first run.
+data/defisitku.json
+_smoke_*.py
+_check_*.py
+_repro_*.py
+_probe*.py

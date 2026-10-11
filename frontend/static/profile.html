@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profil — Nurtra</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div>
+            <h1>Profil &amp; Target</h1>
+            <span class="date-label">Pengaturan defisit kalori</span>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <a href="/report.html" class="btn btn-ghost">Laporan</a>
+          <a href="/" class="btn btn-ghost">Dashboard</a>
+
+          <!-- Account dropdown: greeting + theme + logout in one control -->
+          <div class="acct-wrap">
+            <button
+              id="btnAcct"
+              class="btn btn-acct"
+              title="Akun"
+              aria-expanded="false"
+              aria-haspopup="true"
+            >
+              <span id="acctIcon" class="acct-avatar">?</span>
+              <svg
+                class="acct-caret"
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                aria-hidden="true"
+              >
+                <path
+                  d="M6 9l6 6 6-6"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+
+            <div id="acctMenu" class="acct-menu" hidden>
+              <div id="acctGreeting" class="acct-greeting">Hello!</div>
+              <button id="miTheme" class="acct-item" type="button">
+                <span class="acct-ico" id="miThemeIcon">🌙</span>
+                <span id="miThemeLabel">Mode Gelap</span>
+              </button>
+              <a id="miLogin" class="acct-item" href="/login.html">
+                <span class="acct-ico">🔑</span>
+                <span>Masuk</span>
+              </a>
+              <button
+                id="miLogout"
+                class="acct-item danger"
+                type="button"
+                hidden
+              >
+                <span class="acct-ico">⏻</span>
+                <span>Keluar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="view view-form">
+        <p class="page-intro">
+          Target harian dihitung dari BMR (Mifflin-St Jeor) × aktivitas, lalu
+          dikurangi defisit sesuai target penurunan. Ada batas aman bawah dan
+          defisit maksimal 25% dari TDEE.
+        </p>
+
+        <form id="profileForm" class="form-grid">
+          <label>Nama<input name="name" /></label>
+          <label
+            >Jenis Kelamin
+            <select name="gender">
+              <option value="male">Pria</option>
+              <option value="female">Wanita</option>
+            </select>
+          </label>
+          <label
+            >Umur (tahun)<input name="age" type="number" min="10" max="100"
+          /></label>
+          <label
+            >Berat (kg)<input name="weight_kg" type="number" step="0.1"
+          /></label>
+          <label>Tinggi (cm)<input name="height_cm" type="number" /></label>
+          <label
+            >Aktivitas
+            <select name="activity">
+              <option value="sedentary">
+                Santai (olahraga &lt; 1x/minggu)
+              </option>
+              <option value="light">Ringan (1-3x/minggu)</option>
+              <option value="moderate">Sedang (3-5x/minggu)</option>
+              <option value="active">Aktif (6-7x/minggu)</option>
+              <option value="very_active">Sangat Aktif</option>
+            </select>
+          </label>
+          <label
+            >Target Penurunan (kg/minggu)<input
+              name="weekly_loss_kg"
+              type="number"
+              step="0.1"
+              min="0"
+              max="2"
+          /></label>
+          <label
+            >Puasa Intermiten
+            <select name="fasting_protocol">
+              <option value="">Tidak pakai</option>
+              <option value="12:12">12:12</option>
+              <option value="14:10">14:10</option>
+              <option value="16:8">16:8</option>
+              <option value="18:6">18:6</option>
+              <option value="20:4">20:4</option>
+            </select>
+          </label>
+          <div class="form-result" id="profileResult">Memuat…</div>
+          <button type="submit" class="btn btn-primary btn-wide">
+            Simpan &amp; Hitung Ulang
+          </button>
+        </form>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/profile.js"></script>
+  </body>
+</html>

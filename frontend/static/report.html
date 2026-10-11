@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Laporan Mingguan — Nurtra</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div>
+            <h1>Laporan</h1>
+            <span class="date-label" id="reportRange"></span>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <a href="/profile.html" class="btn btn-ghost">Target</a>
+          <a href="/" class="btn btn-ghost">Dashboard</a>
+
+          <!-- Account dropdown: greeting + theme + logout in one control -->
+          <div class="acct-wrap">
+            <button
+              id="btnAcct"
+              class="btn btn-acct"
+              title="Akun"
+              aria-expanded="false"
+              aria-haspopup="true"
+            >
+              <span id="acctIcon" class="acct-avatar">?</span>
+              <svg
+                class="acct-caret"
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                aria-hidden="true"
+              >
+                <path
+                  d="M6 9l6 6 6-6"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+
+            <div id="acctMenu" class="acct-menu" hidden>
+              <div id="acctGreeting" class="acct-greeting">Hello!</div>
+              <button id="miTheme" class="acct-item" type="button">
+                <span class="acct-ico" id="miThemeIcon">🌙</span>
+                <span id="miThemeLabel">Mode Gelap</span>
+              </button>
+              <a id="miLogin" class="acct-item" href="/login.html">
+                <span class="acct-ico">🔑</span>
+                <span>Masuk</span>
+              </a>
+              <button
+                id="miLogout"
+                class="acct-item danger"
+                type="button"
+                hidden
+              >
+                <span class="acct-ico">⏻</span>
+                <span>Keluar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="view">
+        <div class="report-head">
+          <select id="weekSelect"></select>
+          <button id="btnInsights" class="btn btn-primary">
+            Minta Insight AI
+          </button>
+        </div>
+
+        <section class="card">
+          <div class="card-head"><h2>7 Hari Terakhir</h2></div>
+          <svg
+            viewBox="0 0 640 260"
+            class="chart"
+            id="barChart"
+            role="img"
+            aria-label="Grafik asupan harian vs target"
+          ></svg>
+          <div class="legend">
+            <span class="legend-item"><i class="sw emerald"></i>Asupan</span>
+            <span class="legend-item"><i class="sw warm"></i>Latihan</span>
+            <span class="legend-item"><i class="sw line"></i>Target</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Tren Berat Badan</h2>
+            <span class="card-sub" id="trendSub"></span>
+          </div>
+          <svg
+            viewBox="0 0 640 240"
+            class="chart"
+            id="weightChart"
+            role="img"
+            aria-label="Grafik tren berat badan"
+          ></svg>
+        </section>
+
+        <div class="stat-grid">
+          <div class="stat">
+            <span class="stat-k">Tingkat Kepatuhan</span>
+            <span class="stat-v" id="statAdherence">–</span>
+          </div>
+          <div class="stat">
+            <span class="stat-k">Rata-rata Kalori</span>
+            <span class="stat-v" id="statAvgKcal">–</span>
+          </div>
+          <div class="stat">
+            <span class="stat-k">Rata-rata Protein</span>
+            <span class="stat-v" id="statAvgProtein">–</span>
+          </div>
+        </div>
+
+        <section class="card" id="insightsCard" hidden>
+          <div class="card-head">
+            <h2>Insight &amp; Rekomendasi AI</h2>
+            <span class="badge" id="insightSource"></span>
+          </div>
+          <p id="insightSummary" class="insight-summary"></p>
+          <div id="insightList" class="insight-list"></div>
+          <div id="recList" class="rec-list"></div>
+          <div class="payload-box">
+            <button id="btnPayload" class="btn btn-tiny">
+              Lihat payload ke Atria
+            </button>
+            <pre id="payloadPre" hidden></pre>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/charts.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/report.js"></script>
+  </body>
+</html>

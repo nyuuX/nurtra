@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nurtra — Penghitung Kalori Defisit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- ===== Top bar ===== -->
+      <header class="topbar">
+        <div class="brand">
+          <div>
+            <div display="flex" flex-direction="row">
+              <h1>
+                Nurtra
+                <label style="font-size: 10px; opacity: 0.75; color: gray"
+                  >v0.1.0</label
+                >
+              </h1>
+            </div>
+            <span id="dateLabel" class="date-label"></span>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <a href="/report.html" class="btn btn-ghost">Laporan</a>
+          <a href="/profile.html" class="btn btn-ghost">Target</a>
+
+          <!-- Account dropdown: greeting + theme + logout live here so the
+               topbar only shows one control instead of three buttons. -->
+          <div class="acct-wrap">
+            <button
+              id="btnAcct"
+              class="btn btn-acct"
+              title="Akun"
+              aria-expanded="false"
+              aria-haspopup="true"
+            >
+              <span id="acctIcon" class="acct-avatar">?</span>
+              <svg
+                class="acct-caret"
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                aria-hidden="true"
+              >
+                <path
+                  d="M6 9l6 6 6-6"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+
+            <div id="acctMenu" class="acct-menu" hidden>
+              <div id="acctGreeting" class="acct-greeting">Hello!</div>
+              <button id="miTheme" class="acct-item" type="button">
+                <span class="acct-ico" id="miThemeIcon">🌙</span>
+                <span id="miThemeLabel">Mode Gelap</span>
+              </button>
+              <a id="miLogin" class="acct-item" href="/login.html">
+                <span class="acct-ico">🔑</span>
+                <span>Masuk</span>
+              </a>
+              <button
+                id="miLogout"
+                class="acct-item danger"
+                type="button"
+                hidden
+              >
+                <span class="acct-ico">⏻</span>
+                <span>Keluar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ===== Dashboard ===== -->
+      <main id="viewDashboard" class="view">
+        <!-- Login nudge: shown for anonymous visitors. Logging in unlocks
+             meal/exercise logging, favorites, and the weekly report. -->
+        <div id="authBanner" class="auth-banner" hidden>
+          <div class="auth-banner-text">
+            <strong>Masuk untuk menyimpan progressmu</strong>
+            <span>Log makanan, olahraga, dan laporan butuh akun.</span>
+          </div>
+          <a class="btn btn-primary btn-tiny" id="bannerLogin" href="/login.html"
+            >Masuk</a
+          >
+          <a
+            class="btn btn-ghost btn-tiny"
+            id="bannerSignup"
+            href="/login.html?mode=signup"
+            >Daftar</a
+          >
+        </div>
+        <section class="hero-card" id="heroCard">
+          <svg
+            viewBox="0 0 240 240"
+            class="ring"
+            id="ringSvg"
+            aria-hidden="true"
+          >
+            <circle class="ring-track" cx="120" cy="120" r="100" />
+            <circle
+              class="ring-progress"
+              id="ringProgress"
+              cx="120"
+              cy="120"
+              r="100"
+              transform="rotate(-90 120 120)"
+            />
+          </svg>
+          <div class="hero-inner">
+            <span class="hero-label">Sisa Kuota Kalori</span>
+            <span class="hero-number" id="remainingKcal">–</span>
+            <span class="hero-sub" id="ringCaption">kkal</span>
+          </div>
+        </section>
+
+        <div class="hero-breakdown" id="heroBreakdown">
+          <div class="bd">
+            <span class="bd-k">Target</span
+            ><span class="bd-v" id="bdTarget">–</span>
+          </div>
+          <div class="bd-sep">−</div>
+          <div class="bd">
+            <span class="bd-k">Makanan</span
+            ><span class="bd-v" id="bdFood">–</span>
+          </div>
+          <div class="bd-sep">+</div>
+          <div class="bd">
+            <span class="bd-k">Olahraga</span
+            ><span class="bd-v warm" id="bdExercise">–</span>
+          </div>
+        </div>
+
+        <!-- Fasting chip -->
+        <div class="fasting-chip" id="fastingChip" hidden>
+          <span id="fastingDot" class="dot"></span>
+          <span id="fastingText"></span>
+        </div>
+
+        <!-- Macros -->
+        <section class="card">
+          <div class="card-head">
+            <h2>Macro Harian</h2>
+            <span class="card-sub" id="macroSub"></span>
+          </div>
+          <div class="macro-list" id="macroList"></div>
+        </section>
+
+        <!-- Meals -->
+        <section class="card">
+          <div class="card-head">
+            <h2>Log Makanan</h2>
+            <button id="btnQuickAdd" class="btn btn-tiny">+ Quick Add</button>
+          </div>
+          <div id="mealSections"></div>
+        </section>
+
+        <!-- Exercise -->
+        <section class="card">
+          <div class="card-head">
+            <h2>Olahraga</h2>
+            <button id="btnAddExercise" class="btn btn-tiny warm">
+              + Tambah
+            </button>
+          </div>
+          <div id="exerciseList" class="exercise-list"></div>
+        </section>
+
+        <button id="btnLogWeight" class="btn btn-wide">
+          Catat Berat Badan
+        </button>
+      </main>
+    </div>
+
+    <!-- ===== Food bottom sheet ===== -->
+    <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+    <div class="sheet" id="foodSheet" hidden>
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <h3 id="sheetTitle">Tambah Makanan</h3>
+        <button id="btnCloseSheet" class="btn btn-ghost icon-only">✕</button>
+      </div>
+      <div class="sheet-search">
+        <input
+          id="foodSearch"
+          type="search"
+          placeholder="Cari makanan: dada ayam, nasi, tempe…"
+          autocomplete="off"
+        />
+        <button
+          id="btnAIParse"
+          class="btn btn-tiny"
+          title="Pakai AI untuk mengenali teks bebas"
+        >
+          AI ✨
+        </button>
+      </div>
+      <div id="aiParseBox" class="ai-parse-box" hidden>
+        <div class="ai-parse-input">
+          <textarea
+            id="aiParseText"
+            placeholder="Tulis bebas: 'nasi putih 1 mangkuk sama ayam geprek'"
+            rows="2"
+          ></textarea>
+          <button id="btnAIParseGo" class="btn btn-primary btn-tiny">
+            Proses
+          </button>
+        </div>
+        <div id="aiParseResult"></div>
+      </div>
+      <div class="chips-row" id="recentChips"></div>
+      <div id="searchResults" class="search-results"></div>
+      <div id="portionBox" class="portion-box" hidden>
+        <div class="portion-head">
+          <div>
+            <strong id="portionName"></strong>
+            <span id="portionPer" class="card-sub"></span>
+          </div>
+          <span id="portionKcal" class="portion-kcal"></span>
+        </div>
+        <div class="presets" id="portionPresets"></div>
+        <input
+          id="portionRange"
+          type="range"
+          min="0.25"
+          max="4"
+          step="0.25"
+          value="1"
+        />
+        <div class="range-labels">
+          <span>0.25x</span><span id="rangeVal">1x</span><span>4x</span>
+        </div>
+        <button id="btnConfirmAdd" class="btn btn-primary btn-wide">
+          Tambah ke Log
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== Exercise sheet ===== -->
+    <div class="sheet" id="exerciseSheet" hidden>
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <h3>Log Latihan</h3>
+        <button id="btnCloseExSheet" class="btn btn-ghost icon-only">✕</button>
+      </div>
+      <div id="exercisePicker" class="search-results"></div>
+      <div id="exerciseForm" class="portion-box" hidden>
+        <div class="portion-head">
+          <div>
+            <strong id="exName"></strong
+            ><span id="exMeta" class="card-sub"></span>
+          </div>
+        </div>
+        <label class="field"
+          >Durasi (menit)<input
+            id="exDuration"
+            type="number"
+            min="5"
+            max="240"
+            value="30"
+        /></label>
+        <div id="exKcalPreview" class="portion-kcal"></div>
+        <button id="btnConfirmExercise" class="btn btn-primary btn-wide">
+          Tambah
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== Quick add sheet ===== -->
+    <div class="sheet" id="quickSheet" hidden>
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <h3>Quick Add Manual</h3>
+        <button id="btnCloseQuickSheet" class="btn btn-ghost icon-only">
+          ✕
+        </button>
+      </div>
+      <form id="quickForm" class="quick-form">
+        <label
+          >Nama<input name="name" placeholder="Contoh: Pisang" required
+        /></label>
+        <label
+          >Kalori<input name="kcal" type="number" min="1" required
+        /></label>
+        <label
+          >Protein (g)<input name="protein_g" type="number" step="0.1" min="0"
+        /></label>
+        <label
+          >Karbo (g)<input name="carb_g" type="number" step="0.1" min="0"
+        /></label>
+        <label
+          >Lemak (g)<input name="fat_g" type="number" step="0.1" min="0"
+        /></label>
+        <label
+          >Porsi
+          <select name="meal">
+            <option value="breakfast">Sarapan</option>
+            <option value="lunch">Makan Siang</option>
+            <option value="dinner">Makan Malam</option>
+            <option value="snack">Ngemil</option>
+          </select>
+        </label>
+        <button type="submit" class="btn btn-primary btn-wide">Tambah</button>
+      </form>
+    </div>
+
+    <!-- ===== Weight sheet ===== -->
+    <div class="sheet" id="weightSheet" hidden>
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <h3>Catat Berat Badan</h3>
+        <button id="btnCloseWeightSheet" class="btn btn-ghost icon-only">
+          ✕
+        </button>
+      </div>
+      <form id="weightForm" class="quick-form">
+        <label
+          >Berat saat ini (kg)<input
+            name="weight_kg"
+            type="number"
+            step="0.1"
+            min="30"
+            max="300"
+            required
+        /></label>
+        <button type="submit" class="btn btn-primary btn-wide">Simpan</button>
+      </form>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/charts.js"></script>
+    <script src="/js/app.js"></script>
+  </body>
+</html>
