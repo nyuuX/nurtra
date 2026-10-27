@@ -41,7 +41,7 @@
       if (err.name === "AbortError") {
         throw new Error(
           isAI
-            ? "Atria Dawn terlalu lama merespons. Coba lagi."
+            ? "NumNum terlalu lama merespons. Coba lagi."
             : "Request timeout. Periksa koneksi server."
         );
       }

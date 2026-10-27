@@ -44,7 +44,7 @@ INSIGHT_SCHEMA = {
 def _slim_week(week: dict) -> dict:
     """Trim the payload to what the model actually reasons about.
 
-    Atria Dawn is a reasoning model: every extra token costs latency, and
+    NumNum is a reasoning model: every extra token costs latency, and
     the per-day item lists do not change the analysis.
     """
     # The report endpoint nests these under range/stats; read both shapes so

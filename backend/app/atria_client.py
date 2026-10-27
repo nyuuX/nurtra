@@ -1,7 +1,7 @@
-"""Shared Atria Dawn transport.
+"""Shared NumNum transport.
 
 The model is TEXT-ONLY: every request leaves this file as a JSON chat
-completion. Never send binary/image data to the Atria endpoint.
+completion. Never send binary/image data to the NumNum endpoint.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def chat(
     max_tokens: int = 1800,
     timeout: float = 180.0,
 ) -> str | None:
-    """One Atria Dawn chat completion. Returns assistant text, or None on
+    """One NumNum chat completion. Returns assistant text, or None on
     any transport/HTTP failure so callers can degrade to a local fallback."""
     payload = {
         "model": settings.atria_model,

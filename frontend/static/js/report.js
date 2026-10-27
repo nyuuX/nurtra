@@ -73,14 +73,14 @@
     if (!state.report) return;
     const btn = $("btnInsights");
     btn.disabled = true;
-    btn.textContent = "Atria Dawn berpikir… (±1 menit)";
+    btn.textContent = "NumNum lagi mikirin… (±1 menit)";
 
     // The reasoning model can take 60-150s, so show the user it is still
     // alive instead of a frozen spinner.
     let dots = 0;
     const tick = setInterval(function () {
       dots = (dots + 1) % 4;
-      btn.textContent = "Atria Dawn berpikir" + ".".repeat(dots);
+      btn.textContent = "NumNum berpikir" + ".".repeat(dots);
     }, 2000);
 
     try {
@@ -97,7 +97,7 @@
 
   function renderInsights(insights, payload) {
     $("insightsCard").hidden = false;
-    $("insightSource").textContent = insights.source === "atria" ? "Atria Dawn" : "Lokal";
+    $("insightSource").textContent = insights.source === "atria" ? "NumNum" : "Lokal";
     $("insightSummary").textContent = insights.summary || "";
     const sevClass = { info: "", warning: "warning", alert: "alert" };
 
@@ -124,7 +124,6 @@
       })
       .join("");
 
-    $("payloadPre").textContent = JSON.stringify(payload, null, 2);
     $("insightsCard").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -141,9 +140,6 @@
     $("btnInsights").addEventListener("click", requestInsights);
     $("weekSelect").addEventListener("change", function (e) {
       loadReport(parseInt(e.target.value, 10));
-    });
-    $("btnPayload").addEventListener("click", function () {
-      $("payloadPre").hidden = !$("payloadPre").hidden;
     });
     loadReport(0);
 
