@@ -26,13 +26,23 @@ def _secret_path() -> Path:
 
 
 def _get_secret() -> bytes:
+    # 1. Env var wins (required on read-only serverless filesystems).
+    env_secret = os.environ.get("SESSION_SECRET")
+    if env_secret:
+        return hashlib.sha256(env_secret.encode("utf-8")).digest()
+    # 2. Persisted file (local dev). Serverless = read-only, so never mkdir.
     path = _secret_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        return base64.b64decode(path.read_bytes())
-    secret = secrets.token_bytes(SECRET_LEN)
-    path.write_bytes(base64.b64encode(secret))
-    return secret
+    try:
+        if path.exists():
+            return base64.b64decode(path.read_bytes())
+        secret = secrets.token_bytes(SECRET_LEN)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(base64.b64encode(secret))
+        return secret
+    except OSError:
+        # Read-only filesystem without SESSION_SECRET set: ephemeral secret.
+        # Tokens live for the function instance only; logins re-issue them.
+        return secrets.token_bytes(SECRET_LEN)
 
 
 def _sign(payload: bytes) -> str:
