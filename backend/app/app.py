@@ -54,7 +54,11 @@ app.include_router(report.router, prefix="/api", tags=["report"])
 # Mounted last on purpose: everything not matched by the API falls through
 # to the static frontend (index.html + dashboard + report), so the whole
 # app runs on one port.
-app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+# Skipped on serverless (Vercel) where the frontend is served statically.
+try:
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+except RuntimeError:
+    pass
 
 # ---- Serverless handler (Vercel / AWS Lambda) ------------------------
 # Mangum adapts the ASGI app to the Lambda event/response model Vercel uses.

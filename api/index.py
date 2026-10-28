@@ -1,9 +1,12 @@
 """Vercel serverless entrypoint.
 
-Vercel's @vercel/python builder imports this module and looks for a module
-level `handler` (or `app`) callable. `backend.app.app.handler` is the
-Mangum-wrapped ASGI application, which accepts the Lambda-style event that
-Vercel passes in.
+Vercel's @vercel/python builder looks for a top-level `app`, `application`,
+or `handler` binding in this file, so the ASGI app is wrapped here directly
+instead of re-exported from another module.
 """
 
-from backend.app.app import handler  # noqa: F401
+from mangum import Mangum
+
+from backend.app.app import app
+
+handler = Mangum(app, lifespan="off")
