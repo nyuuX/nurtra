@@ -55,6 +55,8 @@ class DataContext:
         return user
 
     def save(self, db: dict) -> None:
+        if self.is_anonymous:
+            db["anonymous_dirty"] = True
         store.save(db)
 
     # ---- Profile ------------------------------------------------------------

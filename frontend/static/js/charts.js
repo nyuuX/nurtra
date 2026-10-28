@@ -295,9 +295,7 @@
         " L" + points[1][0].toFixed(1) + "," + points[1][1].toFixed(1)
       );
     }
-      return "M" + points[0][0] + "," + points[0][1] + " L" + points[1][0] + "," + points[1][1];
-    }
-    let d = "M" + points[0][0] + "," + points[0][1];
+    let d = "M" + points[0][0].toFixed(1) + "," + points[0][1].toFixed(1);
     for (let i = 0; i < points.length - 1; i++) {
       const p0 = points[Math.max(0, i - 1)];
       const p1 = points[i];

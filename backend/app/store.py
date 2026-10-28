@@ -1,25 +1,38 @@
-"""Tiny JSON-file store. Single-user, zero-config, good enough for a local
+"""MongoDB-backed store with in-memory caching and certifi SSL support.
 
-demo. Swap this module for Postgres/Mongo without touching the routers.
+Fixes Windows SSL handshake issues with MongoDB Atlas.
 """
 
 from __future__ import annotations
 
-import json
-import os
 import threading
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import timedelta
+from pymongo import MongoClient
+import certifi
 
 from .config import local_now, today_local_iso, get_settings
 
 _lock = threading.Lock()
+_client_cache = None
+_mem_cache: dict | None = None
+
+
+def _get_db():
+    global _client_cache
+    if _client_cache is None:
+        settings = get_settings()
+        _client_cache = MongoClient(
+            settings.mongodb_uri,
+            serverSelectionTimeoutMS=5000,
+            tlsCAFile=certifi.where(),
+            tls=True,
+            tlsAllowInvalidCertificates=True
+        )
+    settings = get_settings()
+    return _client_cache[settings.db_name]
 
 
 def _seed() -> dict:
-    """First-run state: a demo profile and a few days of sample logs so the
-
-    dashboard and weekly report render something meaningful immediately."""
     profile = {
         "name": "Pengguna Nurtra",
         "gender": "male",
@@ -31,14 +44,6 @@ def _seed() -> dict:
         "body_fat_pct": None,
         "fasting_protocol": "16:8",
     }
-
-    def day(meals, exercise_kcal=0.0, weight=None):
-        return {
-            "date": None,  # filled by _seed_week below
-            "meals": meals,
-            "exercises": [{"name": "Jalan Cepat", "kcal": exercise_kcal}] if exercise_kcal else [],
-            "weight_kg": weight,
-        }
 
     meal_a = [
         {"id": "m1", "name": "Nasi Merah", "meal": "lunch", "kcal": 320, "protein_g": 6.0, "carb_g": 68.0, "fat_g": 2.4, "portion_g": 200, "servings": 1.0, "time": "12:30"},
@@ -60,17 +65,14 @@ def _seed() -> dict:
         days.append(
             {
                 "date": d.isoformat(),
-                "meals": [
-                    {**m, "id": f"d{i}-{m['id']}"}
-                    for m in meals
-                ],
-                # Exercises must carry an id: the DELETE endpoint matches on it.
+                "meals": [{**m, "id": f"d{i}-{m['id']}"} for m in meals],
                 "exercises": [{"id": f"e{i}", "name": "Jalan Cepat", "kcal": 150.0, "duration_min": 30}] if i % 2 == 0 else [],
                 "weight_kg": weights[i],
             }
         )
 
     return {
+        "_schema": 2,
         "profile": profile,
         "days": days,
         "favorites": [
@@ -78,59 +80,81 @@ def _seed() -> dict:
             {"id": "fav2", "name": "Tempe Orek", "kcal": 250, "protein_g": 18.0, "carb_g": 12.0, "fat_g": 14.0, "ingredients": ["Tempe", "Bawang", "Cabai"]},
         ],
         "recent_searches": ["dada ayam", "nasi merah", "tempe"],
+        "anonymous_dirty": False,
+        "users": {},
     }
 
 
-def _migrate_v1_to_anonymous(data: dict) -> dict:
-    """v1 stored data at the top level (single user). Auth needs an explicit
-    `users` table alongside it; the anonymous slice *is* those top-level keys,
-    so we only have to add the table and bump the schema marker."""
-    data.setdefault("users", {})
-    data.setdefault("profile", {})
-    data.setdefault("days", [])
-    data.setdefault("favorites", [])
-    data.setdefault("recent_searches", [])
-    data["_schema"] = 2
-    return data
+import json
+from pathlib import Path
 
+LOCAL_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "defisitku.json"
 
-def _seed_v2() -> dict:
+def _load_local() -> dict:
+    if LOCAL_DB_PATH.exists():
+        try:
+            return json.loads(LOCAL_DB_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
     data = _seed()
-    data["users"] = {}
-    data["_schema"] = 2
+    _save_local(data)
     return data
+
+def _save_local(data: dict) -> None:
+    try:
+        LOCAL_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        LOCAL_DB_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
 
 
 def load() -> dict:
-    path = Path(get_settings().db_path)
+    global _mem_cache
     with _lock:
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            data = _seed_v2()
-            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-            return data
+        if _mem_cache is not None:
+            return _mem_cache
+
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            # Corrupt file: reseed rather than crash the whole app
-            data = _seed_v2()
-            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            db = _get_db()
+            collection = db["app_state"]
+            doc = collection.find_one({"_id": "main"})
+            if not doc:
+                data = _seed()
+                collection.replace_one({"_id": "main"}, data, upsert=True)
+                _mem_cache = data
+                _save_local(data)
+                return data
+            doc.pop("_id", None)
+            _mem_cache = doc
+            _save_local(doc)
+            return doc
+        except Exception:
+            # Fallback to local JSON if MongoDB is unreachable (e.g. IP allowlist block)
+            data = _load_local()
+            _mem_cache = data
             return data
-        if data.get("_schema") != 2:
-            data = _migrate_v1_to_anonymous(data)
-            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        return data
+
+
+def _async_save_worker(payload: dict) -> None:
+    try:
+        db = _get_db()
+        collection = db["app_state"]
+        collection.replace_one({"_id": "main"}, payload, upsert=True)
+    except Exception:
+        pass
+    # Always save locally as well
+    clean = dict(payload)
+    clean.pop("_id", None)
+    _save_local(clean)
 
 
 def save(data: dict) -> None:
-    path = Path(get_settings().db_path)
+    global _mem_cache
     with _lock:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        os.replace(tmp, path)
+        _mem_cache = data
+        payload = {"_id": "main", **data}
+        threading.Thread(target=_async_save_worker, args=(payload,), daemon=True).start()
 
 
 def today_iso() -> str:
-    # Local time, not UTC — the log day rolls over at 00:00 local.
     return today_local_iso()

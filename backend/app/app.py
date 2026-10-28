@@ -55,3 +55,9 @@ app.include_router(report.router, prefix="/api", tags=["report"])
 # to the static frontend (index.html + dashboard + report), so the whole
 # app runs on one port.
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+
+# ---- Serverless handler (Vercel / AWS Lambda) ------------------------
+# Mangum adapts the ASGI app to the Lambda event/response model Vercel uses.
+from mangum import Mangum  # noqa: E402
+
+handler = Mangum(app, lifespan="off")

@@ -98,8 +98,8 @@ def migrate_anonymous(request: Request) -> dict:
     if not user:
         raise HTTPException(404, "User tidak ditemukan")
 
-    # Only migrate once, and only if the user has no data yet
-    if user.get("days") or user.get("migrated"):
+    # Only migrate once, and only if the anonymous data was actually modified by the user
+    if not data.get("anonymous_dirty") or user.get("days") or user.get("migrated"):
         return {"ok": True, "migrated": False}
 
     user["profile"] = data.get("profile")
