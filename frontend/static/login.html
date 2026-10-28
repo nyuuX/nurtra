@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
@@ -110,7 +110,9 @@
         font-size: 15px;
         font-family: inherit;
         outline: none;
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
         box-sizing: border-box;
       }
       .auth-field input::placeholder {
@@ -220,7 +222,9 @@
         </div>
 
         <h1 class="auth-title" id="authTitle">Masuk</h1>
-        <p class="auth-sub" id="authSub">Lanjutkan pelacakan defisit kalorimu</p>
+        <p class="auth-sub" id="authSub">
+          Lanjutkan pelacakan defisit kalorimu
+        </p>
 
         <div class="auth-tabs">
           <button class="auth-tab active" id="tabLogin">Masuk</button>
@@ -232,14 +236,19 @@
 
           <div class="auth-field" id="nameWrap" hidden>
             <label for="authName">Nama</label>
-            <input id="authName" type="text" placeholder="Budi Santoso" autocomplete="name" />
+            <input
+              id="authName"
+              type="text"
+              placeholder="kamu"
+              autocomplete="name"
+            />
           </div>
 
           <div class="auth-field">
-            <label for="authEmail">Email</label>
+            <label for="authEmail" id="emailLabel">Email</label>
             <input
               id="authEmail"
-              type="email"
+              type="text"
               placeholder="kamu@email.com"
               autocomplete="email"
               required
@@ -291,8 +300,8 @@
           <a href="#" id="switchLink">Daftar gratis</a>
         </p>
         <p class="auth-note">
-          <a href="/">← Kembali ke dashboard</a> &nbsp;·&nbsp; Data demo tetap bisa
-          dipakai tanpa login
+          <a href="/">← Kembali ke dashboard</a> &nbsp;·&nbsp; Data demo tetap
+          bisa dipakai tanpa login
         </p>
       </div>
     </div>

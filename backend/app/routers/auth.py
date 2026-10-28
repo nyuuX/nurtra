@@ -43,12 +43,12 @@ def signup(body: dict, response: Response) -> dict:
 
 @router.post("/login")
 def login(body: dict, response: Response) -> dict:
-    email = str(body.get("email") or "")
+    login_id = str(body.get("login") or body.get("email") or "")
     password = str(body.get("password") or "")
 
-    user = users.verify_credentials(email, password)
+    user = users.verify_credentials(login_id, password)
     if not user:
-        raise HTTPException(401, "Email atau password salah")
+        raise HTTPException(401, "Email, username, atau password salah")
 
     token = sessions.create_token(user["email"])
     _set_session_cookie(response, token)

@@ -69,6 +69,26 @@ def find_user(email: str) -> dict | None:
     return data["users"].get(email.lower())
 
 
+def find_user_by_login(login: str) -> dict | None:
+    """Look up a user by either their email or their display name.
+
+    Login is case-insensitive and ignores surrounding whitespace. Email match
+    takes priority so a user whose name collides with someone else's email
+    still gets into the right account.
+    """
+    if not login:
+        return None
+    key = login.strip().lower()
+    data = _load_db()
+    user = data["users"].get(key)
+    if user:
+        return user
+    for u in data["users"].values():
+        if (u.get("name") or "").strip().lower() == key:
+            return u
+    return None
+
+
 def create_user(email: str, password: str, name: str = "") -> dict:
     """Create a user. Raises ValueError if the email is already taken."""
     email = email.strip().lower()
@@ -101,9 +121,9 @@ def create_user(email: str, password: str, name: str = "") -> dict:
     return user
 
 
-def verify_credentials(email: str, password: str) -> dict | None:
-    """Return the user if the email+password match, else None."""
-    user = find_user(email)
+def verify_credentials(login: str, password: str) -> dict | None:
+    """Return the user if the login (email or name) + password match, else None."""
+    user = find_user_by_login(login)
     if not user:
         return None
     if not _verify_password(password, user["salt"], user["password_hash"]):

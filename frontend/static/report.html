@@ -136,6 +136,25 @@
         </section>
 
         <section class="card">
+          <div class="card-head"><h2>Asupan Kalori 30 Hari</h2></div>
+          <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px;">
+            <svg
+              viewBox="0 0 1400 420"
+              class="chart"
+              id="historyChart"
+              style="min-width: 1200px;"
+              role="img"
+              aria-label="Grafik asupan harian 30 hari"
+            ></svg>
+          </div>
+          <div class="legend" style="margin-top: 12px;">
+            <span class="legend-item"><i class="sw emerald"></i>Asupan</span>
+            <span class="legend-item"><i class="sw warm"></i>Latihan</span>
+            <span class="legend-item"><i class="sw line"></i>Target</span>
+          </div>
+        </section>
+
+        <section class="card">
           <div class="card-head">
             <h2>Tren Berat Badan</h2>
             <span class="card-sub" id="trendSub"></span>
@@ -151,19 +170,23 @@
 
         <div class="stat-grid">
           <div class="stat">
-            <span class="stat-k">Tingkat Kepatuhan</span>
+            <span class="stat-k">Tingkat Kepatuhan (7d)</span>
             <span class="stat-v" id="statAdherence">–</span>
           </div>
           <div class="stat">
-            <span class="stat-k">Rata-rata Kalori</span>
+            <span class="stat-k">Rata-rata Kalori (30d)</span>
             <span class="stat-v" id="statAvgKcal">–</span>
           </div>
           <div class="stat">
-            <span class="stat-k">Rata-rata Protein</span>
+            <span class="stat-k">Hari Terlog (30d)</span>
+            <span class="stat-v" id="statLoggedDays">–</span>
+          </div>
+          <div class="stat">
+            <span class="stat-k">Rata-rata Protein (7d)</span>
             <span class="stat-v" id="statAvgProtein">–</span>
           </div>
           <div class="stat">
-            <span class="stat-k">Rata-rata Air</span>
+            <span class="stat-k">Rata-rata Air (7d)</span>
             <span class="stat-v" id="statAvgWater">–</span>
           </div>
         </div>
@@ -186,5 +209,6 @@
     <script src="/js/charts.js"></script>
     <script src="/js/app.js"></script>
     <script src="/js/report.js"></script>
+    <script src="/js/onboarding.js"></script>
   </body>
 </html>

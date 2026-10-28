@@ -42,6 +42,9 @@
     })
     .catch(() => {});
 
+  const emailWrap = el("emailLabel");
+  const emailInput = el("authEmail");
+
   function setMode(next) {
     mode = next;
     tabs.login.classList.toggle("active", next === "login");
@@ -54,6 +57,11 @@
         : "Buat akun untuk menyimpan progressmu";
     btn.textContent = next === "login" ? "Masuk" : "Daftar Sekarang";
     switchLink.textContent = next === "login" ? "Daftar gratis" : "Sudah punya akun?";
+
+    emailWrap.textContent = next === "login" ? "Email / Username" : "Email";
+    emailInput.placeholder = next === "login" ? "kamu atau kamu@gmail.com" : "kamu@email.com";
+    emailInput.type = next === "login" ? "text" : "email";
+
     hideError();
   }
 
@@ -94,18 +102,18 @@
     const prev = btn.textContent;
     btn.textContent = mode === "login" ? "Memproses…" : "Mendaftarkan…";
 
-    const email = el("authEmail").value.trim();
+    const val = el("authEmail").value.trim();
     const password = el("authPassword").value;
     const name = el("authName").value.trim();
 
-    if (!email || !password) {
-      showError("Email dan password wajib diisi");
+    if (!val || !password) {
+      showError(mode === "login" ? "Username/Email dan password wajib diisi" : "Email dan password wajib diisi");
       btn.disabled = false;
       btn.textContent = prev;
       return;
     }
 
-    const body = mode === "signup" ? { email, password, name } : { email, password };
+    const body = mode === "signup" ? { email: val, password, name } : { login: val, password };
 
     try {
       const res = await fetch(`${API}/${mode === "signup" ? "signup" : "login"}`, {
@@ -137,6 +145,9 @@
           console.warn("migrate-anonymous failed:", err);
         }
       }
+
+      // Set pending flag to trigger onboarding on dashboard
+      sessionStorage.setItem("nurtra_onboard_pending", "1");
 
       window.location.href = redirectTarget();
     } catch (err) {

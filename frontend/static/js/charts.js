@@ -285,8 +285,16 @@
    * the signal, so we never connect the dots with straight lines.
    * ============================================================ */
   function smoothPath(points) {
-    if (points.length < 2) return "";
+    if (points.length === 0) return "";
+    if (points.length === 1) {
+      return "M" + points[0][0].toFixed(1) + "," + points[0][1].toFixed(1);
+    }
     if (points.length === 2) {
+      return (
+        "M" + points[0][0].toFixed(1) + "," + points[0][1].toFixed(1) +
+        " L" + points[1][0].toFixed(1) + "," + points[1][1].toFixed(1)
+      );
+    }
       return "M" + points[0][0] + "," + points[0][1] + " L" + points[1][0] + "," + points[1][1];
     }
     let d = "M" + points[0][0] + "," + points[0][1];
@@ -329,7 +337,7 @@
         "font-size": 13,
         fill: p.muted,
       });
-      msg.textContent = "Belum ada data berat badan minggu ini";
+      msg.textContent = "Belum ada data berat badan";
       svg.appendChild(msg);
       return;
     }
@@ -377,6 +385,20 @@
     // ---- Smooth spline + area fill ---------------------------------
     const points = weights.map(function (w, i) { return [x(i), y(w.weight_kg)]; });
     const linePath = smoothPath(points);
+
+    if (!linePath) {
+      const single = el("circle", {
+        cx: points[0][0],
+        cy: points[0][1],
+        r: 5,
+        fill: p.emerald,
+        stroke: cssVar("--surface") || "#fff",
+        "stroke-width": 2,
+      });
+      svg.appendChild(single);
+      drawPath(single, 600, 250);
+      return;
+    }
 
     // Area under the curve, filled with a soft emerald tint
     const areaPath =
@@ -456,7 +478,15 @@
         opacity: 0,
       });
       const parts = (w.date || "").split("-");
-      day.textContent = parts.length === 3 ? parts[2] : w.date;
+      if (weights.length > 10) {
+        if (i % 3 === 0 || i === weights.length - 1) {
+          day.textContent = parts.length === 3 ? parts[2] + "/" + parts[1] : w.date;
+        } else {
+          day.textContent = "";
+        }
+      } else {
+        day.textContent = parts.length === 3 ? parts[2] : w.date;
+      }
       svg.appendChild(day);
       tween(day, { duration: 250, delay: 200 + i * 110 });
     });

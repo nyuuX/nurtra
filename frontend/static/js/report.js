@@ -41,29 +41,157 @@
 
   function renderReport(res) {
     charts.renderBars($("barChart"), res.bars, res.target_kcal);
-    charts.renderWeight($("weightChart"), res.weights);
+    const historyBars = res.history && res.history.bars ? res.history.bars : [];
+    renderHistory30DayChart($("historyChart"), historyBars, res.target_kcal);
 
-    // The payload nests these under stats/range; read defensively so a
-    // shape change degrades to a placeholder instead of "undefined".
+    const historyWeights = res.history && res.history.weights ? res.history.weights : [];
+    charts.renderWeight($("weightChart"), historyWeights);
+
     const stats = res.stats || {};
     const range = res.range || {};
     const adherence = stats.adherence || {};
+    const hStats = res.history.stats || {};
 
     $("statAdherence").textContent = (adherence.rate || 0).toFixed(0) + "%";
-    $("statAvgKcal").textContent = shared.fmt(stats.avg_kcal || 0);
+    $("statAvgKcal").textContent = shared.fmt(hStats.avg_kcal || 0);
+    $("statLoggedDays").textContent = (hStats.logged_days || 0) + " hari";
     $("statAvgProtein").textContent = (stats.avg_protein_g || 0).toFixed(0) + "g";
-    // Hydration shows the daily average plus the goal so the reader can see
-    // whether they were short, not just the raw number.
     $("statAvgWater").textContent =
       shared.fmt(stats.avg_water_ml || 0) + " ml" +
       (stats.water_target_ml ? " / " + shared.fmt(stats.water_target_ml) : "");
     $("reportRange").textContent =
       shared.fmtDate(range.start) + " — " + shared.fmtDate(range.end);
 
-    const trend = res.weight_trend || {};
-    $("trendSub").textContent = res.weights.length
-      ? "Δ " + (trend.change_kg || 0).toFixed(1) + " kg · rata-rata " + (trend.avg || "-") + " kg"
-      : "Belum ada data berat badan minggu ini";
+    const hTrend = res.history && res.history.weight_trend ? res.history.weight_trend : {};
+    $("trendSub").textContent = historyWeights.length
+      ? "Δ " + (hTrend.change_kg || 0).toFixed(1) + " kg · rata-rata " + (hTrend.avg || "-") + " kg (30 hari)"
+      : "Belum ada data berat badan";
+  }
+
+  // ---- 30-day bar chart -----------------------------------------------------
+
+  function renderHistory30DayChart(svg, bars, target) {
+    if (!bars || !bars.length) return;
+    if (!svg) return;
+    const W = 1400;
+    const H = 420;
+    const padL = 50;
+    const padR = 20;
+    const padT = 20;
+    const padB = 80;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    function el(name, attrs) {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.keys(attrs || {}).forEach(function (key) {
+        node.setAttribute(key, attrs[key]);
+      });
+      return node;
+    }
+
+    function cssVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    const p = {
+      emerald: cssVar("--emerald") || "#10b981",
+      warm: cssVar("--warm") || "#f59e0b",
+      text: cssVar("--text") || "#0f172a",
+      muted: cssVar("--text-muted") || "#6b7280",
+      grid: cssVar("--border") || "#e5e7eb",
+    };
+
+    const maxVal = Math.max(target * 1.25, 500);
+    const y = function (v) {
+      return padT + innerH - (Math.min(v, maxVal) / maxVal) * innerH;
+    };
+
+    [0, 0.5, 1].forEach(function (frac) {
+      const gy = padT + innerH - frac * innerH;
+      svg.appendChild(el("line", {
+        x1: padL, y1: gy, x2: W - padR, y2: gy,
+        stroke: p.grid, "stroke-width": 1,
+        "stroke-dasharray": frac === 1 ? "" : "3 5",
+      }));
+      const label = el("text", {
+        x: padL - 8, y: gy + 4, "text-anchor": "end",
+        "font-size": 12, fill: p.muted,
+      });
+      label.textContent = Math.round(frac * maxVal);
+      svg.appendChild(label);
+    });
+
+    const slot = innerW / bars.length;
+    const barW = Math.min(26, slot * 0.65);
+
+    bars.forEach(function (b, i) {
+      const cx = padL + slot * i + slot / 2;
+      const logged = b.logged && b.kcal > 0;
+      const h = logged ? Math.max(2, padT + innerH - y(b.kcal)) : 0;
+      const rx = 4;
+
+      if (logged) {
+        svg.appendChild(el("rect", {
+          x: cx - barW / 2, y: y(b.kcal), width: barW, height: h,
+          rx: rx, fill: p.emerald, opacity: b.over ? 0.95 : 0.85,
+        }));
+        if (b.exercise_kcal > 0) {
+          const exH = Math.max(2, (b.exercise_kcal / maxVal) * innerH);
+          svg.appendChild(el("rect", {
+            x: cx - barW / 2, y: y(b.kcal) - exH, width: barW, height: exH,
+            rx: rx, fill: p.warm, opacity: 0.9,
+          }));
+        }
+      } else {
+        svg.appendChild(el("rect", {
+          x: cx - barW / 2, y: padT + innerH - 4, width: barW, height: 4,
+          rx: 2, fill: p.grid,
+        }));
+      }
+
+      const dayLabel = el("text", {
+        x: cx, y: H - 48, "text-anchor": "middle",
+        "font-size": 11, "font-weight": 600,
+        fill: logged ? p.text : p.muted,
+      });
+      dayLabel.textContent = b.weekday;
+      svg.appendChild(dayLabel);
+
+      if (i % 2 === 0 || i === bars.length - 1) {
+        const dateLabel = el("text", {
+          x: cx, y: H - 30, "text-anchor": "middle",
+          "font-size": 10, fill: p.muted,
+        });
+        const parts = (b.date_label || "").split(", ");
+        dateLabel.textContent = parts.length > 1 ? parts[1] : b.date_label;
+        svg.appendChild(dateLabel);
+      }
+
+      if (logged) {
+        const value = el("text", {
+          x: cx, y: y(b.kcal) - (b.exercise_kcal > 0 ? 6 : 0) - 5,
+          "text-anchor": "middle", "font-size": 10, "font-weight": 700,
+          fill: p.text,
+        });
+        value.textContent = String(Math.round(b.kcal));
+        svg.appendChild(value);
+      }
+    });
+
+    const ty = y(target);
+    svg.appendChild(el("line", {
+      x1: padL, y1: ty, x2: W - padR, y2: ty,
+      stroke: p.text, "stroke-width": 2, "stroke-dasharray": "7 5", opacity: 0.85,
+    }));
+    const t = el("text", {
+      x: W - padR - 6, y: ty - 8, "text-anchor": "end",
+      "font-size": 12, "font-weight": 800, fill: p.text,
+    });
+    t.textContent = "Target " + Math.round(target) + " kkal";
+    svg.appendChild(t);
   }
 
   // ---- AI insights ---------------------------------------------------------
@@ -75,8 +203,6 @@
     btn.disabled = true;
     btn.textContent = "NumNum lagi mikirin… (±1 menit)";
 
-    // The reasoning model can take 60-150s, so show the user it is still
-    // alive instead of a frozen spinner.
     let dots = 0;
     const tick = setInterval(function () {
       dots = (dots + 1) % 4;
@@ -129,7 +255,6 @@
 
   // ---- Init -----------------------------------------------------------------
 
-  // Let the shared theme toggle re-render these SVGs with new palette tokens
   window.NurtraReport = {
     onThemeChange: function () {
       if (state.report) renderReport(state.report);
@@ -143,8 +268,7 @@
     });
     loadReport(0);
 
-    const shared = window.NurtraShared;
-    if (shared) shared.refreshAuthUI();
+    shared.refreshAuthUI();
   }
 
   document.addEventListener("DOMContentLoaded", init);

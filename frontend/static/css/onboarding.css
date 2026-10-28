@@ -1,0 +1,216 @@
+/* Nurtra — Onboarding Walkthrough Styles */
+
+.ob-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(10, 10, 10, 0.65);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: obFadeIn 0.3s ease;
+}
+
+@keyframes obFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ob-spotlight {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(10, 10, 10, 0.65);
+  pointer-events: none;
+  z-index: 1001;
+}
+
+.ob-card {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 100%;
+  z-index: 1002;
+  box-shadow: 0 12px 48px -12px rgba(10, 10, 10, 0.25);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: obSlideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes obSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ob-media {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.ob-media img {
+  max-width: 100%;
+  height: auto;
+  max-height: 160px;
+  object-fit: contain;
+}
+
+.ob-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0 0 10px;
+  color: var(--text);
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ob-title svg {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.ob-body {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.ob-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ob-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ob-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.ob-field input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ob-field input:focus {
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 3px var(--emerald-soft);
+}
+
+.ob-nav {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ob-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  font-family: inherit;
+}
+
+.ob-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--border);
+}
+
+.ob-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ob-btn-next {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--accent);
+}
+
+.ob-btn-next:hover:not(:disabled) {
+  background: var(--text);
+}
+
+.ob-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ob-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s ease;
+}
+
+.ob-dot.active {
+  background: var(--accent);
+}
+
+/* Mobile: card positioned at bottom */
+@media (max-width: 600px) {
+  .ob-card {
+    width: calc(100% - 32px);
+    bottom: 60px;
+    left: 16px;
+    right: auto;
+    top: auto;
+    max-width: none;
+  }
+}
+
+/* Desktop: card centered */
+@media (min-width: 600px) {
+  .ob-card {
+    width: 420px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    bottom: auto;
+    right: auto;
+  }
+}
+
+html[data-theme="dark"] .ob-overlay {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+html[data-theme="dark"] .ob-card {
+  box-shadow: 0 12px 48px -12px rgba(0, 0, 0, 0.45);
+}

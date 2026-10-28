@@ -36,8 +36,8 @@ def health() -> dict:
     return {
         "status": "ok",
         "ai_mode": settings.ai_mode,
-        "atria_configured": bool(settings.atria_api_key),
-        "model": settings.atria_model,
+        "gemini_configured": bool(settings.gemini_api_key),
+        "model": settings.gemini_model,
     }
 
 
