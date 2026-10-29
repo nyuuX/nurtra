@@ -140,14 +140,9 @@ def save(data: dict) -> None:
     with _lock:
         _mem_cache = data
         payload = {"_id": "main", **data}
-        # Write synchronously to MongoDB to prevent data loss in serverless.
-        # If MongoDB is unreachable, fall back to local file (works in dev).
-        try:
-            db = _get_db()
-            collection = db["app_state"]
-            collection.replace_one({"_id": "main"}, payload, upsert=True)
-        except Exception:
-            _save_local(data)
+        db = _get_db()
+        collection = db["app_state"]
+        collection.replace_one({"_id": "main"}, payload, upsert=True)
 
 
 def today_iso() -> str:
