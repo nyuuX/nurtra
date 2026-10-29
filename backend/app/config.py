@@ -56,7 +56,7 @@ class Settings:
         if tz_name:
             os.environ.setdefault("TZ", tz_name)
         self.tz_name: str = tz_name or time.tzname[0]
-        self.mongodb_uri: str = env.get("MONGODB_URI", "mongodb://localhost:27017")
+        self.mongodb_uri: str = env.get("MONGODB_URI", "mongodb://localhost:27017").strip()
         self.db_name: str = env.get("DB_NAME", "nurtra")
 
         default_db = PROJECT_ROOT / "data" / "defisitku.json"

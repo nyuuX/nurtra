@@ -24,8 +24,17 @@ def _get_db():
     global _client_cache
     if _client_cache is None:
         settings = get_settings()
+        uri = (settings.mongodb_uri or "").strip()
+        if not (uri.startswith("mongodb://") or uri.startswith("mongodb+srv://")):
+            raise RuntimeError(
+                "MONGODB_URI is missing or malformed. It must start with "
+                "'mongodb://' or 'mongodb+srv://'. Current value: "
+                f"{uri!r}. Set the MONGODB_URI environment variable "
+                "(Vercel: Settings > Environment Variables) to your Atlas "
+                "connection string."
+            )
         _client_cache = MongoClient(
-            settings.mongodb_uri,
+            uri,
             serverSelectionTimeoutMS=5000,
             tlsCAFile=certifi.where(),
             tls=True,
