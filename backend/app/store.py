@@ -5,8 +5,11 @@ Fixes Windows SSL handshake issues with MongoDB Atlas.
 
 from __future__ import annotations
 
+import json
 import threading
 from datetime import timedelta
+from pathlib import Path
+
 from pymongo import MongoClient
 import certifi
 
@@ -85,9 +88,6 @@ def _seed() -> dict:
     }
 
 
-import json
-from pathlib import Path
-
 LOCAL_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "defisitku.json"
 
 def _load_local() -> dict:
@@ -135,25 +135,19 @@ def load() -> dict:
             return data
 
 
-def _async_save_worker(payload: dict) -> None:
-    try:
-        db = _get_db()
-        collection = db["app_state"]
-        collection.replace_one({"_id": "main"}, payload, upsert=True)
-    except Exception:
-        pass
-    # Always save locally as well
-    clean = dict(payload)
-    clean.pop("_id", None)
-    _save_local(clean)
-
-
 def save(data: dict) -> None:
     global _mem_cache
     with _lock:
         _mem_cache = data
         payload = {"_id": "main", **data}
-        threading.Thread(target=_async_save_worker, args=(payload,), daemon=True).start()
+        # Write synchronously to MongoDB to prevent data loss in serverless.
+        # If MongoDB is unreachable, fall back to local file (works in dev).
+        try:
+            db = _get_db()
+            collection = db["app_state"]
+            collection.replace_one({"_id": "main"}, payload, upsert=True)
+        except Exception:
+            _save_local(data)
 
 
 def today_iso() -> str:
