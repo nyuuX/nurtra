@@ -140,9 +140,11 @@
             method: "POST",
             credentials: "include",
           });
+          // Force a small delay to allow DB consistency before the browser
+          // navigates to the dashboard, preventing race conditions.
+          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (err) {
-          // Non-fatal — the account works either way.
-          console.warn("migrate-anonymous failed:", err);
+          console.warn("migrate-anonymous failed, proceeding anyway:", err);
         }
       }
 
