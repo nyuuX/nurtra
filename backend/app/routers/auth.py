@@ -74,6 +74,10 @@ def logout(request: Request, response: Response) -> dict:
 def current_user(request: Request) -> dict:
     """Returns the logged-in user, or null for anonymous."""
     token = request.cookies.get("dk_session")
+    if not token:
+        auth = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth and auth.lower().startswith("bearer "):
+            token = auth.split(" ", 1)[1]
     email = sessions.verify_token(token)
     if not email:
         return {"user": None}
@@ -94,7 +98,7 @@ def migrate_anonymous(request: Request) -> dict:
     """
     from .. import store
 
-    token = request.cookies.get("dk_session")
+    token = _token_from_request(request)
     email = sessions.verify_token(token)
     if not email:
         raise HTTPException(401, "Belum login")
