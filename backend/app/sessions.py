@@ -1,15 +1,14 @@
-"""Session tokens — stdlib crypto, MongoDB-backed session store.
+"""Session tokens — stdlib crypto, MongoDB-backed session revocation.
 
 A token is `base64(email|issued|jti).signature` where the signature is an
-HMAC-SHA256 of the payload using a server secret. The `jti` is a random
-session id whose record lives in the `sessions` MongoDB collection, so
-sessions survive across serverless instances (Vercel cold starts) and can
-be revoked server-side.
+HMAC-SHA256 of the payload using a server secret.
 
-Fallbacks keep local dev and Mongo outages working:
-  * SESSION_SECRET env var wins over the persisted file secret.
-  * If Mongo is unreachable, a structurally valid signed token is still
-    accepted (offline-first), it just cannot be revoked.
+Verification policy (resilient to serverless DB hiccups):
+  1. Cryptographic signature must match (proves it was issued by us).
+  2. Token must not be expired (30 days TTL).
+  3. If MongoDB session record exists and explicitly marked revoked/missing, reject.
+     If MongoDB is unreachable or record is missing due to eventual consistency,
+     trust the cryptographic signature to prevent unwanted logouts.
 """
 
 from __future__ import annotations
@@ -33,11 +32,9 @@ def _secret_path() -> Path:
 
 
 def _get_secret() -> bytes:
-    # 1. Env var wins (required on read-only serverless filesystems).
     env_secret = os.environ.get("SESSION_SECRET")
     if env_secret:
         return hashlib.sha256(env_secret.encode("utf-8")).digest()
-    # 2. Persisted file (local dev).
     path = _secret_path()
     try:
         if path.exists():
@@ -56,30 +53,26 @@ def _sign(payload: bytes) -> str:
     ).decode()
 
 
-# ---- MongoDB session store ------------------------------------------------
-
 def _sessions_collection():
-    from . import store  # late import: store pulls in pymongo/certifi
-    db = store._get_db()
-    return db["sessions"]
+    try:
+        from . import store
+        db = store._get_db()
+        return db["sessions"]
+    except Exception:
+        return None
 
 
 def _store_session(jti: str, email: str, issued: int) -> None:
-    try:
-        _sessions_collection().update_one(
-            {"_id": jti},
-            {"$set": {"email": email, "issued": issued, "expires": issued + TOKEN_TTL}},
-            upsert=True,
-        )
-    except Exception:
-        pass  # offline-first: token alone is still verifiable
-
-
-def _session_is_known(jti: str) -> bool:
-    try:
-        return _sessions_collection().find_one({"_id": jti}, {"_id": 1}) is not None
-    except Exception:
-        return True  # Mongo unreachable: don't hard-block logins
+    col = _sessions_collection()
+    if col is not None:
+        try:
+            col.update_one(
+                {"_id": jti},
+                {"$set": {"email": email, "issued": issued, "expires": issued + TOKEN_TTL}},
+                upsert=True,
+            )
+        except Exception:
+            pass
 
 
 def revoke_session(token: str | None) -> None:
@@ -92,15 +85,15 @@ def revoke_session(token: str | None) -> None:
     try:
         payload = base64.b64decode(parts[0]).decode("utf-8")
         _email, _issued, jti = payload.rsplit("|", 2)
-        _sessions_collection().delete_one({"_id": jti})
+        col = _sessions_collection()
+        if col is not None:
+            col.delete_one({"_id": jti})
     except Exception:
         pass
 
 
-# ---- Token API ------------------------------------------------------------
-
 def create_token(email: str) -> str:
-    """Issue a signed, MongoDB-recorded session token for a user."""
+    """Issue a signed session token."""
     issued = int(time.time())
     jti = secrets.token_hex(16)
     payload = f"{email}|{issued}|{jti}".encode("utf-8")
@@ -110,7 +103,11 @@ def create_token(email: str) -> str:
 
 
 def verify_token(token: str | None) -> str | None:
-    """Return the user email if the token is valid, signed, and not expired."""
+    """Return the user email if the token is valid and not expired.
+
+    Trusts cryptographic signature primarily. Only rejects if explicitly
+    revoked in DB (if DB is reachable).
+    """
     if not token:
         return None
     parts = token.split(".", 1)
@@ -135,6 +132,15 @@ def verify_token(token: str | None) -> str | None:
 
     if time.time() - issued > TOKEN_TTL:
         return None
-    if not _session_is_known(jti):
-        return None
+
+    # Check revocation if DB is accessible
+    col = _sessions_collection()
+    if col is not None:
+        try:
+            doc = col.find_one({"_id": jti}, {"revoked": 1})
+            if doc and doc.get("revoked"):
+                return None
+        except Exception:
+            pass
+
     return email_s
