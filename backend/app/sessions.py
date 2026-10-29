@@ -1,8 +1,15 @@
-"""Session tokens — stdlib-only, no JWT dependency.
+"""Session tokens — stdlib crypto, MongoDB-backed session store.
 
-A token is `base64(user_email).signature` where the signature is an
-HMAC-SHA256 of the payload using a server secret. The secret is generated
-once and persisted next to the JSON db, so tokens survive restarts.
+A token is `base64(email|issued|jti).signature` where the signature is an
+HMAC-SHA256 of the payload using a server secret. The `jti` is a random
+session id whose record lives in the `sessions` MongoDB collection, so
+sessions survive across serverless instances (Vercel cold starts) and can
+be revoked server-side.
+
+Fallbacks keep local dev and Mongo outages working:
+  * SESSION_SECRET env var wins over the persisted file secret.
+  * If Mongo is unreachable, a structurally valid signed token is still
+    accepted (offline-first), it just cannot be revoked.
 """
 
 from __future__ import annotations
@@ -30,7 +37,7 @@ def _get_secret() -> bytes:
     env_secret = os.environ.get("SESSION_SECRET")
     if env_secret:
         return hashlib.sha256(env_secret.encode("utf-8")).digest()
-    # 2. Persisted file (local dev). Serverless = read-only, so never mkdir.
+    # 2. Persisted file (local dev).
     path = _secret_path()
     try:
         if path.exists():
@@ -40,8 +47,6 @@ def _get_secret() -> bytes:
         path.write_bytes(base64.b64encode(secret))
         return secret
     except OSError:
-        # Read-only filesystem without SESSION_SECRET set: ephemeral secret.
-        # Tokens live for the function instance only; logins re-issue them.
         return secrets.token_bytes(SECRET_LEN)
 
 
@@ -51,16 +56,61 @@ def _sign(payload: bytes) -> str:
     ).decode()
 
 
+# ---- MongoDB session store ------------------------------------------------
+
+def _sessions_collection():
+    from . import store  # late import: store pulls in pymongo/certifi
+    db = store._get_db()
+    return db["sessions"]
+
+
+def _store_session(jti: str, email: str, issued: int) -> None:
+    try:
+        _sessions_collection().update_one(
+            {"_id": jti},
+            {"$set": {"email": email, "issued": issued, "expires": issued + TOKEN_TTL}},
+            upsert=True,
+        )
+    except Exception:
+        pass  # offline-first: token alone is still verifiable
+
+
+def _session_is_known(jti: str) -> bool:
+    try:
+        return _sessions_collection().find_one({"_id": jti}, {"_id": 1}) is not None
+    except Exception:
+        return True  # Mongo unreachable: don't hard-block logins
+
+
+def revoke_session(token: str | None) -> None:
+    """Invalidate a token server-side (logout)."""
+    if not token:
+        return
+    parts = token.split(".", 1)
+    if len(parts) != 2:
+        return
+    try:
+        payload = base64.b64decode(parts[0]).decode("utf-8")
+        _email, _issued, jti = payload.rsplit("|", 2)
+        _sessions_collection().delete_one({"_id": jti})
+    except Exception:
+        pass
+
+
+# ---- Token API ------------------------------------------------------------
+
 def create_token(email: str) -> str:
-    """Issue a session token for a user."""
+    """Issue a signed, MongoDB-recorded session token for a user."""
     issued = int(time.time())
-    payload = f"{email}|{issued}".encode("utf-8")
+    jti = secrets.token_hex(16)
+    payload = f"{email}|{issued}|{jti}".encode("utf-8")
     b64 = base64.b64encode(payload).decode()
+    _store_session(jti, email, issued)
     return f"{b64}.{_sign(payload)}"
 
 
 def verify_token(token: str | None) -> str | None:
-    """Return the user email if the token is valid and not expired."""
+    """Return the user email if the token is valid, signed, and not expired."""
     if not token:
         return None
     parts = token.split(".", 1)
@@ -77,11 +127,14 @@ def verify_token(token: str | None) -> str | None:
         return None
 
     try:
-        email, issued = payload.decode("utf-8").rsplit("|", 1)
-        issued = int(issued)
+        decoded = payload.decode("utf-8")
+        email_s, issued_s, jti = decoded.rsplit("|", 2)
+        issued = int(issued_s)
     except Exception:
         return None
 
     if time.time() - issued > TOKEN_TTL:
         return None
-    return email
+    if not _session_is_known(jti):
+        return None
+    return email_s

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from .. import sessions, store, users
@@ -10,13 +12,16 @@ router = APIRouter()
 
 
 def _set_session_cookie(resp: Response, token: str) -> None:
-    # httponly so JS can't read it (XSS), samesite for CSRF hygiene
+    # httponly so JS can't read it (XSS), samesite for CSRF hygiene.
+    # `secure` must be True on HTTPS (Vercel); browsers drop a secure=False
+    # cookie set over https in some flows, which logged users straight back out.
+    is_secure = os.environ.get("VERCEL") == "1" or os.environ.get("FORCE_SECURE_COOKIE") == "1"
     resp.set_cookie(
         key="dk_session",
         value=token,
         httponly=True,
         samesite="lax",
-        secure=False,  # localhost; flip to True behind https
+        secure=is_secure,
         max_age=sessions.TOKEN_TTL,
         path="/",
     )
@@ -59,7 +64,8 @@ def login(body: dict, response: Response) -> dict:
 
 
 @router.post("/logout")
-def logout(response: Response) -> dict:
+def logout(request: Request, response: Response) -> dict:
+    sessions.revoke_session(request.cookies.get("dk_session"))
     response.delete_cookie("dk_session", path="/")
     return {"ok": True}
 
